@@ -686,6 +686,8 @@ def fit_coord_matrix(coords) -> np.ndarray:
 
     return coord_mat
 
+#def transform_coords(coords_in: np.ndarray, trans_mat: np.ndarray) -> np.ndarray:
+
 #-------------------------------------------------------------------------------
 def main() -> None:
     print(80*"=")
@@ -762,18 +764,8 @@ def main() -> None:
     print()
 
     #---------------------------------------------------------------------------
-    # Find the coordinate transformation between the experiment and the simulation
-    coord_test = exp_coords[0,:,:] #np.mean(exp_coords,axis=0)
-
-    exp_to_world_mat = fit_coord_matrix(coord_test)
-    world_to_exp_mat = np.linalg.inv(exp_to_world_mat)
-    print("Exp to world matrix:")
-    print(exp_to_world_mat)
-    print()
-    print("World to exp matrix:")
-    print(world_to_exp_mat)
-    print()
-
+    # Transform Sim Coords: only required once
+    print("Transforming simulation coords.")
     sim_coords = np.hstack((sim_coords,np.zeros((sim_coords.shape[0],1))))
 
     sim_to_world_mat = fit_coord_matrix(sim_coords)
@@ -785,99 +777,143 @@ def main() -> None:
     print(world_to_sim_mat)
     print()
 
-    exp_with_w = np.hstack([exp_coords[0,:,:],np.ones([exp_coords.shape[1],1])])
-    print(f"{exp_with_w.shape=}")
-
-    exp_transformed = np.matmul(world_to_exp_mat,exp_with_w.T).T
-
-    print(f"{exp_transformed.shape=}")
-    print()
-
     sim_with_w = np.hstack([sim_coords,np.ones([sim_coords.shape[0],1])])
     print(f"{sim_with_w.shape=}")
 
-    sim_transformed = np.matmul(world_to_sim_mat,sim_with_w.T).T
-
-    print(f"{sim_transformed.shape=}")
+    print("Returning sim coords by removing w coord:")
+    sim_coords = np.matmul(world_to_sim_mat,sim_with_w.T).T
+    print(f"{sim_coords.shape=}")
+    sim_coords = sim_coords[:,:-1]
+    print(f"{sim_coords.shape=}")
     print()
 
-    down_samp = 2
+    sim_disp_t = np.zeros_like(sim_disp)
+    for ss in range(0,sim_disp.shape[0]):
+        sim_disp_t[ss,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],sim_disp[ss,:,:].T).T
+
+    sim_disp = sim_disp_t
+    del sim_disp_t
+
+
+    #---------------------------------------------------------------------------
+    # Transform Exp Coords: required for each frame
+    print("Transforming experimental coords.")
+    print(f"{exp_coords.shape=}")
+
+    exp_coord_t = np.zeros_like(exp_coords)
+    exp_disp_t = np.zeros_like(exp_disp)
+
+    for ff in range(0,exp_coords.shape[0]):
+        exp_to_world_mat = fit_coord_matrix(exp_coords[ff,:,:])
+        world_to_exp_mat = np.linalg.inv(exp_to_world_mat)
+
+        exp_with_w = np.hstack([exp_coords[ff,:,:],np.ones([exp_coords.shape[1],1])])
+
+        exp_coord_temp = np.matmul(world_to_exp_mat,exp_with_w.T).T
+        exp_coord_t[ff,:,:] = exp_coord_temp[:,:-1]
+
+        # Flip the y coord for the experiment?
+        exp_coord_t[ff,:,1] = -exp_coord_t[ff,:,1]
+
+        exp_disp_t[ff,:,:] = np.matmul(world_to_exp_mat[:-1,:-1],exp_disp[ff,:,:].T).T
+        rigid_disp = np.atleast_2d(np.mean(exp_disp_t[ff,:,:],axis=0)).T
+        rigid_disp = np.tile(rigid_disp,exp_disp.shape[1]).T
+        exp_disp_t[ff,:,:] -= rigid_disp
+
+    exp_coords = exp_coord_t
+    exp_disp = exp_disp_t
+    del exp_coord_t, exp_disp_t
+
+    print("After transformation:")
+    print(f"{exp_coords.shape=}")
+    print(f"{exp_disp.shape=}")
+    print()
+
+
+    #---------------------------------------------------------------------------
+    # Comparison of simulation and experimental coords
+
+    # down_samp = 5
+    # frame = 700
 
     # fig = plt.figure()
     # ax = fig.add_subplot(projection="3d")
-    # #ax.scatter(coord_test[::down_samp,0],coord_test[::down_samp,1],coord_test[::down_samp,2])
-    # ax.scatter(exp_transformed[::down_samp,0],exp_transformed[::down_samp,1],exp_transformed[::down_samp,2])
-    # #ax.scatter(sim_coords[:,0],sim_coords[:,1],sim_coords[:,2])
-    # ax.scatter(sim_transformed[:,0],sim_transformed[:,1],sim_transformed[:,2])
-    # #ax.set_zlim(-1.0,1.0)
-    # ax.set_xlabel('X Label')
-    # ax.set_ylabel('Y Label')
-    # ax.set_zlabel('Z Label')
-    # plt.show()
+
+    # ax.scatter(exp_coords[frame,::down_samp,0],
+    #            exp_coords[frame,::down_samp,1],
+    #            exp_coords[frame,::down_samp,2])
+    # ax.scatter(sim_coords[:,0],
+    #            sim_coords[:,1],
+    #            sim_coords[:,2])
+    # ax.set_zlim(-1.0,1.0)
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
 
     # fig = plt.figure()
     # ax = fig.add_subplot()
-    # #ax.scatter(coord_test[::down_samp,0],coord_test[::down_samp,1])
-    # ax.scatter(exp_transformed[::down_samp,0],exp_transformed[::down_samp,1])
-    # #ax.scatter(sim_coords[:,0],sim_coords[:,1])
-    # ax.scatter(sim_transformed[:,0],sim_transformed[:,1])
-    # #ax.set_zlim(-1.0,1.0)
-    # ax.set_xlabel("X Label")
-    # ax.set_ylabel("Y Label")
+    # ax.scatter(exp_coords[frame,::down_samp,0],exp_coords[frame,::down_samp,1])
+    # ax.scatter(sim_coords[:,0],sim_coords[:,1])
+    # ax.set_xlabel("X")
+    # ax.set_ylabel("Y")
     # plt.show()
 
-    # Interpolate: DIC data onto a regular grid
-    file_num = 200
+    #---------------------------------------------------------------------------
+    # Plot displacement fields on transformed coords
+    sim_disp = sim_disp[:,:,[1,2,0]]
+    # Based on the figures:
+    # exp_disp_0 = sim_disp_1 = X
+    # exp_disp_1 = sim_disp_2 = Y
+    # exp_disp_2 = sim_disp_0 = Z
 
-    div_n = 1000
+    plot_disp_comp = True
+    if plot_disp_comp:
+        frame = 500
+        div_n = 1000
 
-    x_min = np.min(sim_coords[:,0])
-    x_max = np.max(sim_coords[:,0])
-    y_min = np.min(sim_coords[:,1])
-    y_max = np.max(sim_coords[:,1])
+        x_min = np.min(sim_coords[:,0])
+        x_max = np.max(sim_coords[:,0])
+        y_min = np.min(sim_coords[:,1])
+        y_max = np.max(sim_coords[:,1])
 
-    x_vec = np.linspace(x_min,x_max,div_n)
-    y_vec = np.linspace(y_min,y_max,div_n)
+        x_vec = np.linspace(x_min,x_max,div_n)
+        y_vec = np.linspace(y_min,y_max,div_n)
 
-    (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
-    x_flat = x_grid.flatten()
-    y_flat = y_grid.flatten()
+        (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
-    print(f"{exp_coords[0,:,0:2].shape=}")
-    print(f"{exp_disp[0,:,0].shape=}")
+        for aa in range(0,3):
+            exp_disp_x_grid = griddata(exp_coords[frame,:,0:2],
+                                    exp_disp[frame,:,aa],
+                                    (x_grid,y_grid),
+                                    method="linear")
 
-    exp_disp_x_grid = griddata(exp_coords[file_num,:,0:2],
-                               exp_disp[file_num,:,0],
-                               (x_grid,y_grid),
-                               method="linear")
-    print(f"{exp_disp_x_grid.shape=}")
-
-    fig,ax = plt.subplots()
-    ax.imshow(exp_disp_x_grid,extent=(x_min,x_max,y_min,y_max))
-    ax.scatter(exp_coords[file_num,:,0],exp_coords[file_num,:,1])
-    plt.title("Exp Data")
-
-    print(80*"-")
-    print(f"{sim_coords.shape=}")
-    print(f"{sim_disp.shape=}")
-    print(80*"-")
-    print()
-
-    sim_disp_x_grid = griddata(sim_coords[:,0:2],
-                               sim_disp[0,:,1],
-                               (x_grid,y_grid),
-                               method="linear")
-
-    fig,ax = plt.subplots()
-    ax.imshow(sim_disp_x_grid,extent=(x_min,x_max,y_min,y_max))
-    ax.scatter(sim_coords[:,0],sim_coords[:,1])
-    plt.title("Sim Data")
-
-    plt.show()
+            fig,ax = plt.subplots()
+            image = ax.imshow(exp_disp_x_grid,extent=(x_min,x_max,y_min,y_max))
+            #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
+            plt.title(f"Exp Data: disp_{aa}")
+            plt.colorbar(image)
+            plt.savefig(f"exp_disp{aa}.png")
 
 
+        for aa in range(0,3):
+            sim_disp_x_grid = griddata(sim_coords[:,0:2],
+                                    sim_disp[0,:,aa],
+                                    (x_grid,y_grid),
+                                    method="linear")
+
+            fig,ax = plt.subplots()
+            image = ax.imshow(sim_disp_x_grid,extent=(x_min,x_max,y_min,y_max))
+            #ax.scatter(sim_coords[:,0],sim_coords[:,1])
+            plt.title(f"Sim Data: disp_{aa}")
+            plt.colorbar(image)
+            plt.savefig(f"sim_disp{aa}.png")
+
+        plt.show()
 
 
+
+
+    #---------------------------------------------------------------------------
 
 
 
