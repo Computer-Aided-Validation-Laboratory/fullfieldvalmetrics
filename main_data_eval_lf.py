@@ -649,20 +649,44 @@ def _load_one_exp(path: Path) -> np.ndarray:
         exp_data[:,6:9] = data[:,18:21]
         return exp_data
 
+def fit_coord_matrix(coords) -> np.ndarray:
+    coord_mat = np.zeros((4,4))
+    coord_mat[-1,-1] = 1
+
+    origin = np.mean(coords,axis=0)
+    coord_mat[:-1,-1] = origin
+
+    # print(f"{origin=}")
+
+    cov_mat = np.cov(coords.T)
+    (_,_,v_mat) = np.linalg.svd(cov_mat)
+
+    # print(f"{cov_mat.shape=}")
+    # print(f"{v_mat.shape=}")
+
+    # V matrix contains eigen vectors which are the axes
+    axis_x = v_mat[0,:]
+    axis_y = v_mat[1,:]
+    axis_z = v_mat[2,:]
+
+    # print(v_mat)
+    # print()
+    # print(axis_x)
+    # print(axis_y)
+    # print(axis_z)
+
+    # Ensure that the coordinate system is right-handed.
+    if np.dot(np.cross(axis_x, axis_y), axis_z) < 0:
+        axis_y = -axis_y
+
+    coord_mat[:-1,0] = axis_x
+    coord_mat[:-1,1] = axis_y
+    coord_mat[:-1,2] = axis_z
+
+    return coord_mat
+
 #-------------------------------------------------------------------------------
 def main() -> None:
-    #---------------------------------------------------------------------------
-    # LF NOTES:
-    #---------------------------------------------------------------------------
-    # DIC DATA:
-    # - 790 time steps
-    #
-    # FE DATA:
-    # - 100 different probabilistic sims
-    # - Does not have z coord as it is a plane face
-    # - First two columns of FE data are all the same store once
-
-    #---------------------------------------------------------------------------
     print(80*"=")
     print("MAVM Calc for DIC Data")
     print(80*"=")
@@ -732,101 +756,23 @@ def main() -> None:
     print(f"{exp_disp.shape=}")
     #print(f"{exp_strain.shape=}")
     print()
+
     #---------------------------------------------------------------------------
-    return
+    # Find the coordinate transformation between the experiment and the simulation
 
-    print("Reading DIC data...\n")
-    dicDisp = DICDisplacement(DIC_DIR)
+    exp_to_world_mat = fit_coord_matrix(exp_coords[0,:,:])
+    print("Exp to world matrix:")
+    print(exp_to_world_mat)
 
-    print(f"{dicDisp.xct.shape=}")
+    sim_coords = np.hstack((sim_coords,np.zeros((sim_coords.shape[0],1))))
 
+    sim_to_world_mat = fit_coord_matrix(sim_coords)
+    print("Sim to world matrix:")
+    print(sim_to_world_mat)
 
-    av_feDispX = np.nanmean(feDisp.xct[0])
-    av_feDispY = np.nanmean(feDisp.yct[0])
-    av_dicDispX = np.nanmean(dicDisp.xct[0])
-    av_dicDispY = np.nanmean(dicDisp.yct[0])
-
-    # Regularise dic coords
-    dicDisp.xct -= av_dicDispX - av_feDispX
-    dicDisp.yct -= av_dicDispY - av_feDispY
-
-    plt.figure()
-    plt.scatter(dicDisp.xct[0],dicDisp.yct[0],c=dicDisp.xct[1],cmap="plasma")
-    plt.axis("equal")
-    plt.colorbar(orientation="horizontal",aspect=100,label="xc [m]")
-    plt.show()
-
-    plt.figure()
-    plt.scatter(feDisp.xct[0],feDisp.yct[0],c=feDisp.xct[1],cmap="plasma")
-    plt.axis("equal")
-    plt.colorbar(orientation="horizontal",aspect=100,label="xc [m]")
-    plt.show()
+    print()
 
 
-    # gridify DIC data
-    xmin = np.nanmin(dicDisp.xpix[0])
-    xmax = np.nanmax(dicDisp.xpix[0])
-    ymin = np.nanmin(dicDisp.ypix[0])
-    ymax = np.nanmax(dicDisp.ypix[0])
-    xdiff = np.nanmin(np.abs([diff for diff in np.diff(dicDisp.xpix[0]) if diff != 0]))
-    ydiff = np.nanmin(np.abs([diff for diff in np.diff(dicDisp.ypix[0]) if diff != 0]))
-
-
-    dicMeshGrid = np.mgrid[xmin:xmax:xdiff, ymin:ymax:ydiff]
-
-    dicMeshData = np.full(dicMeshGrid[0].shape,np.nan)
-    dicXCoords = np.full(dicMeshGrid[0].shape,np.nan)
-    dicYCoords = np.full(dicMeshGrid[0].shape,np.nan)
-
-    for xx in range(dicMeshGrid.shape[1]):
-        for yy in range(dicMeshGrid.shape[2]):
-            xmatch = np.where(dicDisp.xpix[0]==dicMeshGrid[0,xx,yy])[0]
-            ymatch = np.where(dicDisp.ypix[0]==dicMeshGrid[1,xx,yy])[0]
-            index = np.array([ii for ii in xmatch if ii in ymatch])
-            if index.size==0:
-                pass
-            else:
-                index=index[0]
-                dicMeshData[xx,yy] = dicDisp.dzt[1,index]
-                dicXCoords[xx,yy] = dicDisp.xct[0,index]
-                dicYCoords[xx,yy] = dicDisp.yct[0,index]
-
-    plt.figure()
-    plt.imshow(dicMeshData,cmap="plasma")
-    plt.show()
-
-    # gridify FE data
-    xmin = np.nanmin(feDisp.xct[0])
-    xmax = np.nanmax(feDisp.xct[0])
-    ymin = np.nanmin(feDisp.yct[0])
-    ymax = np.nanmax(feDisp.yct[0])
-    xdiff = np.nanmin(np.abs([diff for diff in np.diff(feDisp.xct[0]) if diff != 0]))
-    ydiff = np.nanmin(np.abs([diff for diff in np.diff(feDisp.yct[0]) if diff != 0]))
-
-    feMeshGrid = np.mgrid[xmin:xmax:xdiff, ymin:ymax:ydiff]
-
-    feMeshData = np.full(feMeshGrid[0].shape,np.nan)
-
-    for xx in range(feMeshGrid.shape[1]):
-        for yy in range(feMeshGrid.shape[2]):
-            xmatch = np.isclose(feDisp.xct[0],feMeshGrid[0,xx,yy])
-            ymatch = np.isclose(feDisp.yct[0],feMeshGrid[1,xx,yy])
-            index = np.where((xmatch==True) & (ymatch==True))
-
-            index = index[0][0]
-            feMeshData[xx,yy] = feDisp.dzt[0,index]
-
-    plt.figure()
-    plt.imshow(feMeshData,cmap="plasma")
-    plt.show()
-
-    # Try the interp
-
-    feInterpolator = interpolate.RegularGridInterpolator((feMeshGrid[0],feMeshGrid[1]),feMeshData)
-
-    # Remaining: interpolating FE to DIC properly, implementing mavm (which should then be straightforward - see function below.
-
-    return None
 
 if __name__ == "__main__":
     main()
