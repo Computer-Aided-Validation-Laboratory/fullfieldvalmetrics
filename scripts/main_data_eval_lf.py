@@ -283,9 +283,9 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
     cbar.ax.tick_params(labelsize=cbar_font_size)
 
     if scale_cbar:
-        fig.savefig(f"disp_comp_{ax_str}.png",dpi=300,format="png",bbox_inches="tight")
+        fig.savefig(Path("images")/f"disp_comp_{ax_str}.png",dpi=300,format="png",bbox_inches="tight")
     else:
-        fig.savefig(f"disp_comp_{ax_str}_cbarfree.png",dpi=300,format="png",bbox_inches="tight")
+        fig.savefig(Path("images")/f"disp_comp_{ax_str}_cbarfree.png",dpi=300,format="png",bbox_inches="tight")
 
 
 
@@ -497,7 +497,7 @@ def main() -> None:
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
             plt.title(f"Exp Data: disp_{aa}")
             plt.colorbar(image)
-            plt.savefig(f"exp_map_disp{aa}.png")
+            plt.savefig(Path("images")/f"exp_map_disp{aa}.png")
 
 
         for aa in range(0,3):
@@ -511,7 +511,7 @@ def main() -> None:
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
             plt.title(f"Sim Data: disp_{aa}")
             plt.colorbar(image)
-            plt.savefig(f"sim_map_disp{aa}.png")
+            plt.savefig(Path("images")/f"sim_map_disp{aa}.png")
 
     #---------------------------------------------------------------------------
     # Find the steady state portion of the experiment for averaging
@@ -542,7 +542,7 @@ def main() -> None:
         plt.title(f"Exp: disp_{ax_ind} traces")
         ax.set_xlabel("frame [#]")
         ax.set_ylabel(f"disp_{ax_ind} [mm]")
-        plt.savefig(f"exp_disp_traces_{ax_ind}.png")
+        plt.savefig(Path("images")/f"exp_disp_traces_{ax_ind}.png")
 
         ax_ind: int = 1
         fig,ax = plt.subplots()
@@ -551,7 +551,7 @@ def main() -> None:
         plt.title(f"Exp: disp_{ax_ind} traces")
         ax.set_xlabel("frame [#]")
         ax.set_ylabel(f"disp_{ax_ind} [mm]")
-        plt.savefig(f"exp_disp_traces_{ax_ind}.png")
+        plt.savefig(Path("images")/f"exp_disp_traces_{ax_ind}.png")
 
         ax_ind: int = 2
         fig,ax = plt.subplots()
@@ -560,7 +560,7 @@ def main() -> None:
         plt.title(f"Exp: disp_{ax_ind} traces")
         ax.set_xlabel("frame [#]")
         ax.set_ylabel(f"disp_{ax_ind} [mm]")
-        plt.savefig(f"exp_disp_traces_{ax_ind}.png")
+        plt.savefig(Path("images")/f"exp_disp_traces_{ax_ind}.png")
 
 
     #---------------------------------------------------------------------------
