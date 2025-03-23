@@ -402,8 +402,7 @@ def interp_exp_to_common_grid(coords: np.ndarray,
 #-------------------------------------------------------------------------------
 # MAVM Calculation
 def mavm(model_data,
-         exp_data,
-         plot_res: bool = False
+         exp_data
          ) -> dict[str,Any]:
     """
     Calculates the Modified Area Validation Metric.
@@ -569,13 +568,46 @@ def mavm_figs(mavm_res: dict[str,Any],
     save_path = Path("images") / f"mavm fill {field_label} {title_str}.png"
     fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
+def plot_mavm_map(mavm_d_plus: np.ndarray,
+                  mavm_d_minus:np.ndarray,
+                  ax_ind: int,
+                  ax_str: str,
+                  grid_shape: tuple[int,int],
+                  extent: tuple[float,float,float,float]) -> None:
+
+    plot_opts = pyvale.PlotOptsGeneral()
+    fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2))
+
+    fig,ax = plt.subplots(1,2,figsize=fig_size,layout='constrained')
+    fig.set_dpi(plot_opts.resolution)
+
+    mavm_dp_grid = np.reshape(mavm_d_plus[:,ax_ind],grid_shape)
+    mavm_dm_grid = np.reshape(mavm_d_minus[:,ax_ind],grid_shape)
+
+    image = ax[0].imshow(mavm_dp_grid,
+                      extent=extent)
+    cbar = plt.colorbar(image)
+    ax[0].set_title(f"MAVM d+\ndisp. {ax_str} [mm]")
+    ax[0].set_xlabel("x [mm]",fontsize=plot_opts.font_ax_size)
+    ax[0].set_ylabel("y [mm]",fontsize=plot_opts.font_ax_size)
+
+    image = ax[1].imshow(mavm_dm_grid,
+                      extent=extent)
+    cbar = plt.colorbar(image)
+    ax[1].set_title(f"MAVM d-\ndisp. {ax_str} [mm]")
+    ax[1].set_xlabel("x [mm]",fontsize=plot_opts.font_ax_size)
+    ax[1].set_ylabel("y [mm]",fontsize=plot_opts.font_ax_size)
+
+    fig.savefig(Path("images")/f"mavm_map_disp{ax_str}.png",dpi=300,format="png",bbox_inches="tight")
+
+
+
 #===============================================================================
 def main() -> None:
     print(80*"=")
     print("MAVM Calc for DIC Data")
     print(80*"=")
 
-    OUTPUT_DIR = Path.cwd()
     FE_DIR = Path.cwd()/ "Pulse38_ProbSim_Disp_CamView"
     DIC_DIR = Path.cwd() / "Pulse38_Exp_DIC"
 
@@ -903,7 +935,7 @@ def main() -> None:
 
 
     #---------------------------------------------------------------------------
-    # Calculate the MAVM point by point
+    # Calculate the MAVM for a few key points:
     print("Starting MAVM calculation.")
 
     # Interpolate all displacements onto a common grid
@@ -974,28 +1006,77 @@ def main() -> None:
     print(f"{coords_common[mavm_inds['x'],:]=}")
     print(f"{coords_common[mavm_inds['y'],:]=}")
 
+    plot_mavm = False
+
     ax_str = "x"
     mavm_res = {}
     mavm_res[ax_str] = mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
-                            exp_disp_common[:,mavm_inds[ax_str][0],0],
-                            plot_res=True)
-
-    field_label = f"disp. {ax_str} [mm]"
-    mavm_figs(mavm_res[ax_str],
-              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
-              field_label)
-
+                            exp_disp_common[:,mavm_inds[ax_str][0],0])
     ax_str = "y"
-    mavm_res = {}
     mavm_res[ax_str] = mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
-                            exp_disp_common[:,mavm_inds[ax_str][0],0],
-                            plot_res=True)
+                            exp_disp_common[:,mavm_inds[ax_str][0],0])
 
-    field_label = f"disp. {ax_str} [mm]"
-    mavm_figs(mavm_res[ax_str],
+    if plot_mavm:
+        field_label = f"disp. {ax_str} [mm]"
+        mavm_figs(mavm_res[ax_str],
+                f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+                field_label)
+        field_label = f"disp. {ax_str} [mm]"
+        mavm_figs(mavm_res[ax_str],
               f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
               field_label)
 
+    print(80*"-")
+    print(type(mavm_res["x"]["d+"]))
+    print(type(mavm_res["x"]["d-"]))
+    print(mavm_res["x"]["d+"].shape)
+    print(mavm_res["x"]["d-"].shape)
+    print(mavm_res["x"]["d+"])
+    print(mavm_res["x"]["d-"])
+    print(80*"-")
+
+    #---------------------------------------------------------------------------
+    # Calculate the mavm d+,d- full-field
+    mavm_d_plus_path = Path.cwd() / "mavm_d_plus.npy"
+    mavm_d_minus_path = Path.cwd() / "mavm_d_minus.npy"
+
+    if not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file():
+        print("Calculating MAVM d+ and d- over all points for all disp comps.")
+        mavm_d_plus = np.zeros((grid_pts,3))
+        mavm_d_minus = np.zeros((grid_pts,3))
+        for pp in range(0,grid_pts):
+
+            for aa in range(0,3):
+                if np.count_nonzero(np.isnan(exp_disp_common[:,pp,aa])) > 0:
+                    mavm_d_plus[pp,aa] = np.nan
+                    mavm_d_minus[pp,aa] = np.nan
+                else:
+                    mavm_res = mavm(sim_disp_common[:,pp,aa],exp_disp_common[:,pp,aa])
+                    mavm_d_plus[pp,aa] = mavm_res["d+"]
+                    mavm_d_minus[pp,aa] = mavm_res["d-"]
+
+        print("Saving MAVM calculation for faster loading.")
+        np.save(mavm_d_plus_path,mavm_d_plus)
+        np.save(mavm_d_minus_path,mavm_d_minus)
+    else:
+        print("Loading previous MAVM d+ and d- from npy.")
+        mavm_d_plus = np.load(mavm_d_plus_path)
+        mavm_d_minus = np.load(mavm_d_minus_path)
+
+
+    print(f"{mavm_d_plus.shape=}")
+    print(f"{mavm_d_minus.shape=}")
+
+    ax_strs = ("x","y","z")
+    ax_inds = (0,1,2)
+    extent = (sim_x_min,sim_x_max,sim_y_min,sim_y_max)
+    for ii,ss in zip(ax_inds,ax_strs):
+        plot_mavm_map(mavm_d_plus,
+                      mavm_d_minus,
+                      ii,
+                      ss,
+                      grid_shape,
+                      extent)
 
     #---------------------------------------------------------------------------
     # Final show to pop all produced figures
