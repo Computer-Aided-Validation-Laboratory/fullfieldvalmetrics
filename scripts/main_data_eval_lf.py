@@ -539,9 +539,9 @@ def mavm_figs(mavm_res: dict[str,Any],
                          layout="constrained")
     fig.set_dpi(plot_opts.resolution)
 
-    axs.ecdf(model_cdf.quantiles,label="model")
-    axs.ecdf(exp_cdf.quantiles,label="experiment")
-    axs.ecdf(Sn_conf[0],ls="dashed",color="k",label="95% C.I.")
+    axs.ecdf(model_cdf.quantiles,label="sim.")
+    axs.ecdf(exp_cdf.quantiles,label="exp.")
+    axs.ecdf(Sn_conf[0],ls="dashed",color="k",label=r"95% C.I.")
     axs.ecdf(Sn_conf[1],ls="dashed",color="k")
     axs.legend()
 
@@ -962,8 +962,8 @@ def main() -> None:
     print(f"{coords_common.shape=}")
     print()
 
-    find_point_x = np.array([20.0,-15.0]) # mm
-    find_point_y = np.array([0.0,-15.0])  # mm
+    find_point_x = np.array([24.0,-16.5]) # mm
+    find_point_y = np.array([0.0,-16.5])  # mm
     mavm_inds = {}
     mavm_inds["x"] = find_nearest_points(coords_common,find_point_x,k=3)
     mavm_inds["y"] = find_nearest_points(coords_common,find_point_y,k=3)

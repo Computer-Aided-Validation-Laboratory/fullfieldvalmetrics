@@ -55,3 +55,20 @@ Analysis of these figures shows:
 **NOTE:** should we include the standard deviation maps here as well? They would give a better idea if the difference is significant.
 
 ## Validation Metric Calculation
+The Modified Area Validation Metric (MAVM) was calculated according to this [article](http://asmedigitalcollection.asme.org/verification/article-pdf/8/1/011001/6974199/vvuq_008_01_011001.pdf). The MAVM and cumulative density functions for the x and y displacement components at relevant key points is shown below. For the x displacement the peak is observed on the left and right edges at the top corners of the sample so (x,y)=(24.25,16) was selected. For the y displacement the peak occurs at the top center of the sample for (x,y)=(0.25,16.25) was selected.
+
+|![fig_mavm_ci_disp_x](images/mavm%20ci%20disp.%20x%20[mm]%20(x,y)=(24.25,16.25).png)|
+|:--:|
+|*Comparison of cumulative distribution functions for the x displacement at a point near the maximum displacement (see previous displacement maps).*|
+
+|![fig_mavm_fill_disp_x](images/mavm%20fill%20disp.%20x%20[mm]%20(x,y)=(24.25,16.25).png)|
+|:--:|
+|*Modified area validation metric for the x component of displacement at a point near the maximum displacement.*|
+
+|![fig_mavm_ci_disp_y](images/mavm%20ci%20disp.%20y%20[mm]%20(x,y)=(0.25,16.25).png)|
+|:--:|
+|*Comparison of cumulative distribution functions for the y displacement at a point near the maximum displacement (see previous displacement maps).*|
+
+|![fig_mavm_fill_disp_y](images/mavm%20fill%20disp.%20y%20[mm]%20(x,y)=(0.25,16.25).png)|
+|:--:|
+|*Modified area validation metric for the y component of displacement at a point near the maximum displacement.*|
