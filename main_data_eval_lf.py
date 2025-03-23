@@ -7,9 +7,15 @@ Copyright (C) 2024 The Computer Aided Validation Team
 import time
 from pathlib import Path
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from multiprocessing.pool import Pool
 from scipy.interpolate import griddata
+import pyvale
+
+SMALL_SIZE = 8
+matplotlib.rc('font', size=SMALL_SIZE)
+matplotlib.rc('axes', titlesize=SMALL_SIZE)
 
 #===============================================================================
 # LF Funtions
@@ -175,6 +181,113 @@ def find_nearest_points(coords: np.ndarray,
     distances = np.sqrt(np.sum((coords[:,:-1] - find_point)**2,axis=1))
     return np.argsort(distances)[:k]
 
+def plot_disp_comp_maps(sim_coords: np.ndarray,
+                       sim_disp_avg: np.ndarray,
+                       exp_coords_avg: np.ndarray,
+                       exp_disp_avg: np.ndarray,
+                       ax_ind: int,
+                       ax_str: str,
+                       scale_cbar: bool = True) -> None:
+
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+
+    step = 0.5
+    x_vec = np.arange(sim_x_min,sim_x_max,step)
+    y_vec = np.arange(sim_y_min,sim_y_max,step)
+    (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
+
+    exp_disp_grid_avg = griddata(exp_coords_avg[:,0:2],
+                             exp_disp_avg[:,ax_ind],
+                             (x_grid,y_grid),
+                             method="linear")
+
+    # This will do minimal interpolation as the input points are the same as the sim
+    sim_disp_grid_avg = griddata(sim_coords[:,0:2],
+                             sim_disp_avg[:,ax_ind],
+                             (x_grid,y_grid),
+                             method="linear")
+
+    disp_diff_avg = sim_disp_grid_avg - exp_disp_grid_avg
+
+    color_max = np.nanmax((np.nanmax(sim_disp_grid_avg),np.nanmax(exp_disp_grid_avg)))
+    color_min = np.nanmin((np.nanmin(sim_disp_grid_avg),np.nanmin(exp_disp_grid_avg)))
+
+    # print(80*"-")
+    # print(f"{sim_disp_avg.shape=}")
+    # print(f"{sim_disp_avg[:,ax_ind].shape=}")
+    # print(f"{sim_disp_grid_avg.shape=}")
+    # print()
+    # print(f"{np.max(sim_disp_grid_avg)=}")
+    # print(f"{np.min(sim_disp_grid_avg)=}")
+    # print()
+    # print(f"{color_max=}")
+    # print(f"{color_min=}")
+    # print(80*"-")
+
+    cbar_font_size = 6.0
+
+    plot_opts = pyvale.PlotOptsGeneral()
+    fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
+    fig,ax = plt.subplots(1,3,figsize=fig_size,layout='constrained')
+    fig.set_dpi(plot_opts.resolution)
+
+    if scale_cbar:
+        image = ax[0].imshow(exp_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                            vmin = color_min,
+                            vmax = color_max)
+    else:
+        image = ax[0].imshow(exp_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+
+    ax[0].set_title(f"Exp. Avg. \ndisp. {ax_str} [mm]",
+                    fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+    ax[0].set_xlabel("x [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    ax[0].set_ylabel("y [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    cbar = plt.colorbar(image)
+    cbar.ax.tick_params(labelsize=cbar_font_size)
+
+    if scale_cbar:
+        image = ax[1].imshow(sim_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                            vmin = color_min,
+                            vmax = color_max)
+    else:
+        image = ax[1].imshow(sim_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+
+    ax[1].set_title(f"Sim. Avg.\ndisp. {ax_str} [mm]",
+                    fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+    ax[1].set_xlabel("x [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    ax[1].set_ylabel("y [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    cbar = plt.colorbar(image)
+    cbar.ax.tick_params(labelsize=cbar_font_size)
+
+    image = ax[2].imshow(disp_diff_avg,
+                         extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                         cmap="RdBu")
+    ax[2].set_title(f"(Sim. - Exp.)\ndisp. {ax_str} [mm]",
+                    fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+    ax[2].set_xlabel("x [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    ax[2].set_ylabel("y [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    cbar = plt.colorbar(image)
+    cbar.ax.tick_params(labelsize=cbar_font_size)
+
+    if scale_cbar:
+        fig.savefig(f"disp_comp_{ax_str}.png",dpi=300,format="png",bbox_inches="tight")
+    else:
+        fig.savefig(f"disp_comp_{ax_str}_cbarfree.png",dpi=300,format="png",bbox_inches="tight")
+
+
 
 #===============================================================================
 def main() -> None:
@@ -279,6 +392,10 @@ def main() -> None:
     for ss in range(0,sim_disp.shape[0]):
         sim_disp_t[ss,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],sim_disp[ss,:,:].T).T
 
+        rigid_disp = np.atleast_2d(np.mean(sim_disp_t[ss,:,:],axis=0)).T
+        rigid_disp = np.tile(rigid_disp,sim_disp.shape[1]).T
+        sim_disp_t[ss,:,:] -= rigid_disp
+
     sim_disp = sim_disp_t
     del sim_disp_t
 
@@ -354,18 +471,18 @@ def main() -> None:
     # exp_disp_1 = sim_disp_2 = Y
     # exp_disp_2 = sim_disp_0 = Z
 
-    plot_disp_sim_exp = True
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+
+    plot_disp_sim_exp = False
     if plot_disp_sim_exp:
         frame = 500
         div_n = 1000
 
-        x_min = np.min(sim_coords[:,0])
-        x_max = np.max(sim_coords[:,0])
-        y_min = np.min(sim_coords[:,1])
-        y_max = np.max(sim_coords[:,1])
-
-        x_vec = np.linspace(x_min,x_max,div_n)
-        y_vec = np.linspace(y_min,y_max,div_n)
+        x_vec = np.linspace(sim_x_min,sim_x_max,div_n)
+        y_vec = np.linspace(sim_y_min,sim_y_max,div_n)
 
         (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
@@ -376,7 +493,7 @@ def main() -> None:
                                     method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(exp_disp_grid,extent=(x_min,x_max,y_min,y_max))
+            image = ax.imshow(exp_disp_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
             plt.title(f"Exp Data: disp_{aa}")
             plt.colorbar(image)
@@ -390,7 +507,7 @@ def main() -> None:
                                     method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(sim_disp_grid,extent=(x_min,x_max,y_min,y_max))
+            image = ax.imshow(sim_disp_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
             plt.title(f"Sim Data: disp_{aa}")
             plt.colorbar(image)
@@ -398,7 +515,7 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # Find the steady state portion of the experiment for averaging
-    print("Averaging coords and fields for steady state comparison.")
+    print("Analysing experiment displacement traces to extract steady state region.")
     exp_coords_avg = np.mean(exp_coords,axis=0)
     print(f"{exp_coords_avg.shape=}")
 
@@ -406,7 +523,7 @@ def main() -> None:
     # NOTE: coords are flipped compared to plotted maps above!
     # EXPERIMENT STEADY STATE: 300-650
 
-    plot_disp_traces = True
+    plot_disp_traces = False
     if plot_disp_traces:
         find_point_0 = np.array([20,-15]) # mm
         find_point_1 = np.array([0,-15])  # mm
@@ -446,9 +563,63 @@ def main() -> None:
         plt.savefig(f"exp_disp_traces_{ax_ind}.png")
 
 
+    #---------------------------------------------------------------------------
+    # Average fields from experiment and simulation to plot the difference
+    print("\nAveraging experiment steady state and simulation for full-field comparison.")
+    exp_avg_start: int = 300
+    exp_avg_end: int = 650
+    exp_coords_avg = np.mean(exp_coords[exp_avg_start:exp_avg_end,:,:],axis=0)
+    exp_disp_avg = np.mean(exp_disp[exp_avg_start:exp_avg_end,:,:],axis=0)
+    sim_disp_avg = np.mean(sim_disp,axis=0)
+
+    print(f"{exp_disp_avg.shape=}")
+    print(f"{sim_disp_avg.shape=}")
+
+    elem_size = np.min(np.sqrt(np.sum((sim_coords[1:,:] - sim_coords[0,:])**2,axis=1)))
+
+    tol = 1e-6
+    scale = 1/tol
+    round_arr = np.round(sim_coords[:,0] * scale) / scale
+    num_elem_x = np.unique(round_arr)
+    round_arr = np.round(sim_coords[:,1]* scale) / scale
+    num_elem_y = np.unique(round_arr)
+
+    print(f"{elem_size=}")
+    print()
+    print(f"{sim_x_min=}")
+    print(f"{sim_x_max=}")
+    print(f"{sim_y_min=}")
+    print(f"{sim_y_max=}")
+    print(f"{(sim_x_max-sim_x_min)=}")
+    print(f"{(sim_y_max-sim_y_min)=}")
+    print()
+    print(f"{num_elem_x.shape=}")
+    print(f"{num_elem_y.shape=}")
+    print()
+
+    ax_inds = (0,1,2)
+    ax_strs = ("x","y","z")
+
+    for ii,ss in zip(ax_inds,ax_strs):
+        plot_disp_comp_maps(sim_coords,
+                           sim_disp_avg,
+                           exp_coords_avg,
+                           exp_disp_avg,
+                           ii,
+                           ss,
+                           scale_cbar=True)
+        plot_disp_comp_maps(sim_coords,
+                           sim_disp_avg,
+                           exp_coords_avg,
+                           exp_disp_avg,
+                           ii,
+                           ss,
+                           scale_cbar=False)
+
 
     #---------------------------------------------------------------------------
     # Final show to pop all produced figures
+
     print("COMPLETE.")
     plt.show()
 
