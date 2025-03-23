@@ -72,3 +72,19 @@ The Modified Area Validation Metric (MAVM) was calculated according to this [art
 |![fig_mavm_fill_disp_y](images/mavm%20fill%20disp.%20y%20[mm]%20(x,y)=(0.25,16.25).png)|
 |:--:|
 |*Modified area validation metric for the y component of displacement at a point near the maximum displacement.*|
+
+The MAVM gives two bounds to the simulation result termed d+ and d-. These are taken as the worst case deviation between the experiment and simulation in a signed manner. As the d+ and d- are the worst case deviation they are not a function of probability and yield a scalar value for each point in the displacement maps. Therefore the maps of d+ and d- are shown below for each displacement component.
+
+|![fig_mavm_map_dispx](images/mavm_map_dispx.png)|
+|:--:|
+|*Modified area validation metric upper 'd+' and lower 'd-' deviation between the simulation and experiment for the x displacement component.*|
+
+|![fig_mavm_map_dispy](images/mavm_map_dispy.png)|
+|:--:|
+|*Modified area validation metric upper 'd+' and lower 'd-' deviation between the simulation and experiment for the y displacement component.*|
+
+|![fig_mavm_map_dispz](images/mavm_map_dispz.png)|
+|:--:|
+|*Modified area validation metric upper 'd+' and lower 'd-' deviation between the simulation and experiment for the y displacement component.*|
+
+The shape of the MAVM d+ and d- are symmetric about the centreline of the sample. As the sample undergoes volumetric expansion due to the imposed induction heating this would indicate a difference in either the temperature distribution or the thermal expansion coefficient with the simulation.
