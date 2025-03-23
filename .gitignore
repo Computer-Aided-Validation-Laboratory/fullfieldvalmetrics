@@ -1,7 +1,6 @@
 # Specific ignores
 TODO*/
 Pulse38_*/
-*.png
 *.npy
 
 
