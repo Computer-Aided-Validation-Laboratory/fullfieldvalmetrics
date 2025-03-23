@@ -4,12 +4,14 @@ License: MIT
 Copyright (C) 2024 The Computer Aided Validation Team
 ================================================================================
 '''
+from typing import Any
 import time
 from pathlib import Path
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from multiprocessing.pool import Pool
+from scipy import stats
 from scipy.interpolate import griddata
 import pyvale
 
@@ -288,6 +290,260 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
         fig.savefig(Path("images")/f"disp_comp_{ax_str}_cbarfree.png",dpi=300,format="png",bbox_inches="tight")
 
 
+def _interp_one_instance(coords: np.ndarray,
+                         disp: np.ndarray,
+                         x_grid: np.ndarray,
+                         y_grid: np.ndarray) -> np.ndarray:
+    disp_common = np.zeros((x_grid.size,3))
+
+    for aa in range(0,3):
+        sim_disp_grid = griddata(coords,
+                                disp[:,aa],
+                                (x_grid,y_grid),
+                                method="linear")
+        disp_common[:,aa] = sim_disp_grid.flatten()
+
+    return disp_common
+
+
+def interp_sim_to_common_grid(coords: np.ndarray,
+                          disp: np.ndarray,
+                          x_grid: np.ndarray,
+                          y_grid: np.ndarray,
+                          run_para: None | int = None) -> np.ndarray:
+
+
+    if run_para is not None:
+        with Pool(run_para) as pool:
+            processes = []
+
+            for ss in range(0,disp.shape[0]):
+                processes.append(pool.apply_async(_interp_one_instance,
+                                                  args=(coords[:,0:2],
+                                                        disp[ss,:,:],
+                                                        x_grid,
+                                                        y_grid)))
+
+            data_list = [pp.get() for pp in processes]
+
+        disp_common = np.stack(data_list)
+
+        print(80*"-")
+        print(f"{len(data_list)=}")
+        print(f"{data_list[0].shape=}")
+        print(f"{disp_common.shape=}")
+        print(80*"-")
+
+        return disp_common
+
+
+    # Non-parallel run
+    for ss in range(0,disp.shape[0]):
+        print(f"Interpolating: {ss}")
+        for aa in range(0,3):
+            disp_grid = griddata(coords[:,0:2],
+                                        disp[ss,:,aa],
+                                    (x_grid,y_grid),
+                                    method="linear")
+            disp_common[ss,:,aa] = disp_grid.flatten()
+
+    return disp_common
+
+
+
+def interp_exp_to_common_grid(coords: np.ndarray,
+                              disp: np.ndarray,
+                              x_grid: np.ndarray,
+                              y_grid: np.ndarray,
+                              run_para: None | int = None) -> np.ndarray:
+
+    if run_para is not None:
+        with Pool(run_para) as pool:
+            processes = []
+
+            for ss in range(0,disp.shape[0]):
+                processes.append(pool.apply_async(_interp_one_instance,
+                                                  args=(coords[ss,:,0:2],
+                                                        disp[ss,:,:],
+                                                        x_grid,
+                                                        y_grid)))
+
+            data_list = [pp.get() for pp in processes]
+
+        disp_common = np.stack(data_list)
+
+        print(80*"-")
+        print(f"{len(data_list)=}")
+        print(f"{data_list[0].shape=}")
+        print(f"{disp_common.shape=}")
+        print(80*"-")
+
+        return disp_common
+
+    # Non-parallel run
+    disp_common = np.zeros((disp.shape[0],x_grid.size,3))
+
+    for ss in range(0,disp.shape[0]):
+        print(f"Interpolating: {ss}")
+        for aa in range(0,3):
+            disp_grid = griddata(coords[ss,:,0:2],
+                                        disp[ss,:,aa],
+                                    (x_grid,y_grid),
+                                    method="linear")
+            disp_common[ss,:,aa] = disp_grid.flatten()
+
+    return disp_common
+
+
+
+#-------------------------------------------------------------------------------
+# MAVM Calculation
+def mavm(model_data,
+         exp_data,
+         plotRes: bool = False
+         ) -> dict[str,Any]:
+    """
+    Calculates the Modified Area Validation Metric.
+    Adapted from Whiting et al., 2023, "Assessment of Model Validation, Calibration, and Prediction Approaches in the Presence of Uncertainty", Journal of Verification, Validation and Uncertainty Quantification, Vol. 8.
+    Downloaded from http://asmedigitalcollection.asme.org/verification/article-pdf/8/1/011001/6974199/vvuq_008_01_011001.pdf on 24 May 2024.
+    """
+
+    # find empirical cdf
+    model_cdf = stats.ecdf(model_data).cdf
+    exp_cdf = stats.ecdf(exp_data).cdf
+
+    if plotRes:
+        # plot empirical cdf
+        fig,axs=plt.subplots(1,1)
+        model_cdf.plot(axs,label="model")
+        exp_cdf.plot(axs,label="experiment")
+        axs.legend()
+        axs.set_xlabel(r"Temperature [$\degree$C]")
+        axs.set_ylabel("Probability")
+        plt.show()
+
+    F_ = model_cdf.quantiles
+    Sn_ = exp_cdf.quantiles
+
+
+    df = len(Sn_)-1
+    t_alph = stats.t.ppf(0.95,df)
+
+    Sn_conf = [Sn_ - t_alph*(np.nanstd(Sn_)/np.sqrt(len(Sn_))),
+               Sn_ + t_alph*(np.nanstd(Sn_)/np.sqrt(len(Sn_)))]
+
+
+    Sn_Y = exp_cdf.probabilities
+    F_Y = model_cdf.probabilities
+
+
+    if plotRes:
+        # plot empirical cdf with conf. int. cdfs
+        fig,axs=plt.subplots(1,1)
+        axs.ecdf(model_cdf.quantiles,label="model")
+        axs.ecdf(exp_cdf.quantiles,label="experiment")
+        axs.ecdf(Sn_conf[0],ls="dashed",color="k",label="95% C.I.")
+        axs.ecdf(Sn_conf[1],ls="dashed",color="k")
+        axs.legend()
+        axs.set_xlabel(r"Temperature [$\degree$C]")
+        axs.set_ylabel("Probability")
+        plt.show()
+
+
+    P_F = 1/len(F_)
+    P_Sn = 1/len(exp_cdf.quantiles)
+
+    d_conf_plus = []
+    d_conf_minus = []
+
+    for k in [0,1]:
+
+        ii = 0
+        d_rem = 0
+
+        d_plus = 0
+        d_minus = 0
+
+        Sn = Sn_conf[k]
+
+        #If more experimental data points than model data points
+        if len(Sn) > len(F_):
+
+            for jj in range(0,len(F_)):
+                if d_rem != 0:
+                    d_ = (Sn[ii] - F_[jj]) * (P_Sn*(ii+1) - P_F*jj)
+                    if d_ > 0:
+                        d_plus += d_
+                    else:
+                        d_minus += d_
+                    ii += 1
+                while (jj+1)*P_F > (ii+1)*P_Sn:
+                    d_ = (Sn[ii] - F_[jj])*P_F
+                    if d_ > 0:
+                        d_plus += d_
+                    else:
+                        d_minus += d_
+
+                    ii += 1
+                d_rem = (Sn[ii]-F_[jj])*(P_F*(jj+1) - P_Sn*ii)
+                if d_rem > 0:
+                    d_plus += d_rem
+                else:
+                    d_minus += d_rem
+
+        #If more model data points than experimental data points (more typical)
+        elif len(Sn) <= len(F_):
+
+            for jj in range(0,len(Sn)):
+
+                if d_rem != 0:
+                    d_ = (Sn[jj]-F_[ii])*(P_F*(ii+1) - P_Sn*jj)
+                    if d_ > 0:
+                        d_plus += d_
+                    else:
+                        d_minus += d_
+                    ii += 1
+
+                while (ii+1)*P_F < (jj+1)*P_Sn:
+                    d_ = (Sn[jj]-F_[ii])*P_F
+                    if d_ > 0:
+                        d_plus += d_
+                    else:
+                        d_minus += d_
+
+                    ii += 1
+
+                d_rem = (Sn[jj]-F_[ii])*(P_Sn*(jj+1) - P_F*ii)
+                if d_rem > 0:
+                    d_plus += d_rem
+                else:
+                    d_minus += d_rem
+
+        d_conf_plus.append(np.abs(d_plus))
+        d_conf_minus.append(np.abs(d_minus))
+
+    d_plus = np.nanmax(d_conf_plus)
+    d_minus = np.nanmax(d_conf_minus)
+
+
+    if plotRes:
+        plt.figure()
+        plt.plot(F_,F_Y,"k-")
+        plt.plot(F_+d_plus,F_Y,"k--")
+        plt.plot(F_-d_minus,F_Y,"k--")
+        plt.fill_betweenx(F_Y,F_-d_minus,F_+d_plus,color="k",alpha=0.2)
+        plt.xlabel(r"Temperature [$\degree$C]")
+        plt.ylabel("Probability")
+        plt.tight_layout()
+        plt.show()
+
+    output_dict = {"model_cdf":model_cdf,
+                   "exp_cdf":exp_cdf,
+                   "d+":d_plus,
+                   "d-":d_minus}
+
+    return output_dict
+
 
 #===============================================================================
 def main() -> None:
@@ -346,7 +602,7 @@ def main() -> None:
         print(f"Loading exp data took: {end_time-start_time}s")
 
 
-        print(f"Saving numpy arrays in binary format for faster reading...")
+        print("Saving numpy arrays in binary format for faster reading...")
         np.save(exp_coord_path,exp_coords)
         np.save(exp_disp_path,exp_disp)
         np.save(exp_strain_path,exp_strain)
@@ -519,22 +775,21 @@ def main() -> None:
     exp_coords_avg = np.mean(exp_coords,axis=0)
     print(f"{exp_coords_avg.shape=}")
 
+    find_point_0 = np.array([20,-15]) # mm
+    find_point_1 = np.array([0,-15])  # mm
+
+    trace_inds_0 = find_nearest_points(exp_coords_avg,find_point_0,k=5)
+    trace_inds_1 = find_nearest_points(exp_coords_avg,find_point_1,k=5)
+
+    print(f"{exp_coords_avg[trace_inds_0,:]=}")
+    print(f"{exp_coords_avg[trace_inds_1,:]=}")
+
     # Plot traces from a few experimental points near the top to find steady state
     # NOTE: coords are flipped compared to plotted maps above!
     # EXPERIMENT STEADY STATE: 300-650
 
     plot_disp_traces = False
     if plot_disp_traces:
-        find_point_0 = np.array([20,-15]) # mm
-        find_point_1 = np.array([0,-15])  # mm
-
-        trace_inds_0 = find_nearest_points(exp_coords_avg,find_point_0,k=5)
-        trace_inds_1 = find_nearest_points(exp_coords_avg,find_point_1,k=5)
-
-        print(f"{exp_coords_avg[trace_inds_0,:]=}")
-        print(f"{exp_coords_avg[trace_inds_1,:]=}")
-
-
         ax_ind: int = 0
         fig,ax = plt.subplots()
         for ii in trace_inds_0:
@@ -568,6 +823,10 @@ def main() -> None:
     print("\nAveraging experiment steady state and simulation for full-field comparison.")
     exp_avg_start: int = 300
     exp_avg_end: int = 650
+
+    exp_coords = exp_coords[exp_avg_start:exp_avg_end,:,:]
+    exp_disp = exp_disp[exp_avg_start:exp_avg_end,:,:]
+
     exp_coords_avg = np.mean(exp_coords[exp_avg_start:exp_avg_end,:,:],axis=0)
     exp_disp_avg = np.mean(exp_disp[exp_avg_start:exp_avg_end,:,:],axis=0)
     sim_disp_avg = np.mean(sim_disp,axis=0)
@@ -600,26 +859,85 @@ def main() -> None:
     ax_inds = (0,1,2)
     ax_strs = ("x","y","z")
 
-    for ii,ss in zip(ax_inds,ax_strs):
-        plot_disp_comp_maps(sim_coords,
-                           sim_disp_avg,
-                           exp_coords_avg,
-                           exp_disp_avg,
-                           ii,
-                           ss,
-                           scale_cbar=True)
-        plot_disp_comp_maps(sim_coords,
-                           sim_disp_avg,
-                           exp_coords_avg,
-                           exp_disp_avg,
-                           ii,
-                           ss,
-                           scale_cbar=False)
+    plot_on = False
+    if plot_on:
+        for ii,ss in zip(ax_inds,ax_strs):
+            plot_disp_comp_maps(sim_coords,
+                            sim_disp_avg,
+                            exp_coords_avg,
+                            exp_disp_avg,
+                            ii,
+                            ss,
+                            scale_cbar=True)
+            plot_disp_comp_maps(sim_coords,
+                            sim_disp_avg,
+                            exp_coords_avg,
+                            exp_disp_avg,
+                            ii,
+                            ss,
+                            scale_cbar=False)
 
 
     #---------------------------------------------------------------------------
-    # Final show to pop all produced figures
+    # Calculate the MAVM point by point
+    print("Starting MAVM calculation.")
 
+    # Interpolate all displacements onto a common grid
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+
+    step = 0.5
+    x_vec = np.arange(sim_x_min,sim_x_max,step)
+    y_vec = np.arange(sim_y_min,sim_y_max,step)
+    (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
+    grid_shape = x_grid.shape
+    grid_pts = x_grid.size
+
+    sim_disp_common_path = Path.cwd() / "sim_disp_common.npy"
+    exp_disp_common_path = Path.cwd() / "exp_disp_common.npy"
+
+    if not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file():
+        print("Interpolating simulation displacements to common grid.")
+        start_time = time.perf_counter()
+        sim_disp_common = interp_sim_to_common_grid(sim_coords,
+                                                    sim_disp,
+                                                    x_grid,
+                                                    y_grid,
+                                                    run_para=16)
+        end_time = time.perf_counter()
+        print(f"Interpolating sim. displacements took: {end_time-start_time}s\n")
+
+
+        print("Interpolating experiment displacements to common grid.")
+        start_time = time.perf_counter()
+        exp_disp_common = interp_exp_to_common_grid(exp_coords,
+                                                    exp_disp,
+                                                    x_grid,
+                                                    y_grid,
+                                                    run_para=16)
+        end_time = time.perf_counter()
+        print(f"Interpolating exp. displacements took: {end_time-start_time}s\n")
+
+        print("Saving interpolated common grid data in npy format for speed.")
+        np.save(sim_disp_common_path,sim_disp_common)
+        np.save(exp_disp_common_path,exp_disp_common)
+    else:
+        print("Loading pre-interpolated sim and exp disp data for speed.")
+        sim_disp_common = np.load(sim_disp_common_path)
+        exp_disp_common = np.load(exp_disp_common_path)
+
+    print()
+    print("Interpolated data shapes:")
+    print(f"{sim_disp_common.shape=}")
+    print(f"{exp_disp_common.shape=}")
+    print()
+
+    #mavm_res = mavm()
+
+    #---------------------------------------------------------------------------
+    # Final show to pop all produced figures
     print("COMPLETE.")
     plt.show()
 
