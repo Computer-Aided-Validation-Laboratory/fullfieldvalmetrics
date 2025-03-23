@@ -180,7 +180,10 @@ def fit_coord_matrix(coords) -> np.ndarray:
 def find_nearest_points(coords: np.ndarray,
                         find_point: np.ndarray,
                         k: int = 5) -> np.ndarray:
-    distances = np.sqrt(np.sum((coords[:,:-1] - find_point)**2,axis=1))
+    if coords.shape[1] >= 3:
+        coords = coords[:,0:2]
+
+    distances = np.sqrt(np.sum((coords - find_point)**2,axis=1))
     return np.argsort(distances)[:k]
 
 def plot_disp_comp_maps(sim_coords: np.ndarray,
@@ -400,7 +403,7 @@ def interp_exp_to_common_grid(coords: np.ndarray,
 # MAVM Calculation
 def mavm(model_data,
          exp_data,
-         plotRes: bool = False
+         plot_res: bool = False
          ) -> dict[str,Any]:
     """
     Calculates the Modified Area Validation Metric.
@@ -412,19 +415,8 @@ def mavm(model_data,
     model_cdf = stats.ecdf(model_data).cdf
     exp_cdf = stats.ecdf(exp_data).cdf
 
-    if plotRes:
-        # plot empirical cdf
-        fig,axs=plt.subplots(1,1)
-        model_cdf.plot(axs,label="model")
-        exp_cdf.plot(axs,label="experiment")
-        axs.legend()
-        axs.set_xlabel(r"Temperature [$\degree$C]")
-        axs.set_ylabel("Probability")
-        plt.show()
-
     F_ = model_cdf.quantiles
     Sn_ = exp_cdf.quantiles
-
 
     df = len(Sn_)-1
     t_alph = stats.t.ppf(0.95,df)
@@ -432,23 +424,8 @@ def mavm(model_data,
     Sn_conf = [Sn_ - t_alph*(np.nanstd(Sn_)/np.sqrt(len(Sn_))),
                Sn_ + t_alph*(np.nanstd(Sn_)/np.sqrt(len(Sn_)))]
 
-
     Sn_Y = exp_cdf.probabilities
     F_Y = model_cdf.probabilities
-
-
-    if plotRes:
-        # plot empirical cdf with conf. int. cdfs
-        fig,axs=plt.subplots(1,1)
-        axs.ecdf(model_cdf.quantiles,label="model")
-        axs.ecdf(exp_cdf.quantiles,label="experiment")
-        axs.ecdf(Sn_conf[0],ls="dashed",color="k",label="95% C.I.")
-        axs.ecdf(Sn_conf[1],ls="dashed",color="k")
-        axs.legend()
-        axs.set_xlabel(r"Temperature [$\degree$C]")
-        axs.set_ylabel("Probability")
-        plt.show()
-
 
     P_F = 1/len(F_)
     P_Sn = 1/len(exp_cdf.quantiles)
@@ -526,24 +503,71 @@ def mavm(model_data,
     d_minus = np.nanmax(d_conf_minus)
 
 
-    if plotRes:
-        plt.figure()
-        plt.plot(F_,F_Y,"k-")
-        plt.plot(F_+d_plus,F_Y,"k--")
-        plt.plot(F_-d_minus,F_Y,"k--")
-        plt.fill_betweenx(F_Y,F_-d_minus,F_+d_plus,color="k",alpha=0.2)
-        plt.xlabel(r"Temperature [$\degree$C]")
-        plt.ylabel("Probability")
-        plt.tight_layout()
-        plt.show()
-
     output_dict = {"model_cdf":model_cdf,
                    "exp_cdf":exp_cdf,
                    "d+":d_plus,
-                   "d-":d_minus}
+                   "d-":d_minus,
+                   "Sn_conf":Sn_conf,
+                   "F_":F_,
+                   "F_Y":F_Y,}
 
     return output_dict
 
+def mavm_figs(mavm_res: dict[str,Any],
+              title_str: str,
+              field_label: str) -> None:
+
+    model_cdf = mavm_res["model_cdf"]
+    exp_cdf = mavm_res["exp_cdf"]
+    Sn_conf = mavm_res["Sn_conf"]
+    d_plus = mavm_res["d+"]
+    d_minus = mavm_res["d-"]
+    F_ = mavm_res["F_"]
+    F_Y = mavm_res["F_Y"]
+
+    # fig,axs=plt.subplots(1,1)
+    # model_cdf.plot(axs,label="model")
+    # exp_cdf.plot(axs,label="experiment")
+    # axs.legend()
+    # axs.set_xlabel(field_label)
+    # axs.set_ylabel("Probability")
+    plot_opts = pyvale.PlotOptsGeneral()
+
+    # plot empirical cdf with conf. int. cdfs
+    fig,axs=plt.subplots(1,1,
+                         figsize=plot_opts.single_fig_size_landscape,
+                         layout="constrained")
+    fig.set_dpi(plot_opts.resolution)
+
+    axs.ecdf(model_cdf.quantiles,label="model")
+    axs.ecdf(exp_cdf.quantiles,label="experiment")
+    axs.ecdf(Sn_conf[0],ls="dashed",color="k",label="95% C.I.")
+    axs.ecdf(Sn_conf[1],ls="dashed",color="k")
+    axs.legend()
+
+    axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+    axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
+    axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+    save_path = Path("images") / f"mavm ci {field_label} {title_str}.png"
+    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
+
+    fig,axs=plt.subplots(1,1,
+                         figsize=plot_opts.single_fig_size_landscape,
+                         layout="constrained")
+    fig.set_dpi(plot_opts.resolution)
+
+    axs.plot(F_,F_Y,"k-")
+    axs.plot(F_+d_plus,F_Y,"k--")
+    axs.plot(F_-d_minus,F_Y,"k--")
+    axs.fill_betweenx(F_Y,F_-d_minus,F_+d_plus,color="k",alpha=0.2)
+
+    axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+    axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
+    axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+    save_path = Path("images") / f"mavm fill {field_label} {title_str}.png"
+    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
 #===============================================================================
 def main() -> None:
@@ -928,13 +952,50 @@ def main() -> None:
         sim_disp_common = np.load(sim_disp_common_path)
         exp_disp_common = np.load(exp_disp_common_path)
 
+
+    coords_common = np.vstack((x_grid.flatten(),y_grid.flatten())).T
+
     print()
     print("Interpolated data shapes:")
     print(f"{sim_disp_common.shape=}")
     print(f"{exp_disp_common.shape=}")
+    print(f"{coords_common.shape=}")
     print()
 
-    #mavm_res = mavm()
+    find_point_x = np.array([20.0,-15.0]) # mm
+    find_point_y = np.array([0.0,-15.0])  # mm
+    mavm_inds = {}
+    mavm_inds["x"] = find_nearest_points(coords_common,find_point_x,k=3)
+    mavm_inds["y"] = find_nearest_points(coords_common,find_point_y,k=3)
+
+
+    print(f"{mavm_inds['x']}")
+    print(f"{mavm_inds['y']}")
+    print(f"{coords_common[mavm_inds['x'],:]=}")
+    print(f"{coords_common[mavm_inds['y'],:]=}")
+
+    ax_str = "x"
+    mavm_res = {}
+    mavm_res[ax_str] = mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
+                            exp_disp_common[:,mavm_inds[ax_str][0],0],
+                            plot_res=True)
+
+    field_label = f"disp. {ax_str} [mm]"
+    mavm_figs(mavm_res[ax_str],
+              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+              field_label)
+
+    ax_str = "y"
+    mavm_res = {}
+    mavm_res[ax_str] = mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
+                            exp_disp_common[:,mavm_inds[ax_str][0],0],
+                            plot_res=True)
+
+    field_label = f"disp. {ax_str} [mm]"
+    mavm_figs(mavm_res[ax_str],
+              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+              field_label)
+
 
     #---------------------------------------------------------------------------
     # Final show to pop all produced figures
