@@ -199,7 +199,7 @@ def main() -> None:
     sim_y_min = np.min(sim_coords[:,1])
     sim_y_max = np.max(sim_coords[:,1])
 
-    plot_disp_sim_exp = False
+    plot_disp_sim_exp = True
     if plot_disp_sim_exp:
         frame = 500
         div_n = 1000
@@ -326,7 +326,7 @@ def main() -> None:
     ax_inds = (0,1,2)
     ax_strs = ("x","y","z")
 
-    plot_on = False
+    plot_on = True
     if plot_on:
         for ii,ss in zip(ax_inds,ax_strs):
             vm.plot_disp_comp_maps(sim_coords,
@@ -344,7 +344,9 @@ def main() -> None:
                             ss,
                             scale_cbar=False)
 
+    plt.show()
 
+    return
     #---------------------------------------------------------------------------
     # Calculate the MAVM for a few key points:
     print("Starting MAVM calculation.")
@@ -411,13 +413,10 @@ def main() -> None:
     mavm_inds["x"] = vm.find_nearest_points(coords_common,find_point_x,k=3)
     mavm_inds["y"] = vm.find_nearest_points(coords_common,find_point_y,k=3)
 
-
     print(f"{mavm_inds['x']}")
     print(f"{mavm_inds['y']}")
     print(f"{coords_common[mavm_inds['x'],:]=}")
     print(f"{coords_common[mavm_inds['y'],:]=}")
-
-    plot_mavm = False
 
     ax_str = "x"
     mavm_res = {}
@@ -427,6 +426,7 @@ def main() -> None:
     mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
                             exp_disp_common[:,mavm_inds[ax_str][0],0])
 
+    plot_mavm = True
     if plot_mavm:
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],

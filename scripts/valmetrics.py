@@ -8,7 +8,6 @@ Copyright (C) 2024 The Computer Aided Validation Team
 from typing import Any
 from pathlib import Path
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from multiprocessing.pool import Pool
 from scipy import stats
@@ -16,11 +15,15 @@ from scipy.interpolate import griddata
 import pyvale
 
 
-def load_sim_data(data_path: Path) -> tuple[np.ndarray,np.ndarray]:
+def load_sim_data(data_path: Path, skip_header: int = 0) -> tuple[np.ndarray,np.ndarray]:
     csv_files = list(data_path.glob("*.csv"))
     csv_files = sorted(csv_files)
 
-    data = np.genfromtxt(csv_files[0],dtype=np.float64,delimiter=",")
+    data = np.genfromtxt(csv_files[0],
+                         skip_header=skip_header,
+                         dtype=np.float64,
+                         delimiter=",")
+
 
     # Coords are the same for all FE files, store once:
     # fe_coords.shape = (num_nodes, coord[x,y]) = (num_nodes,2)
@@ -35,7 +38,10 @@ def load_sim_data(data_path: Path) -> tuple[np.ndarray,np.ndarray]:
     csv_files.pop(0)
 
     for ii,ff in enumerate(csv_files):
-        data = np.genfromtxt(ff,dtype=np.float64,delimiter=",")
+        data = np.genfromtxt(ff,
+                             skip_header=skip_header,
+                             dtype=np.float64,
+                             delimiter=",")
         sim_disp[ii+1,:,:] = data[:,2:]
 
     # fe_coords.shape = (num_nodes, coord[x,y]) = (num_nodes,2)
@@ -186,7 +192,8 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
                        exp_disp_avg: np.ndarray,
                        ax_ind: int,
                        ax_str: str,
-                       scale_cbar: bool = True) -> None:
+                       scale_cbar: bool = True,
+                       save_tag: str = "") -> None:
 
     sim_x_min = np.min(sim_coords[:,0])
     sim_x_max = np.max(sim_coords[:,0])
@@ -220,7 +227,7 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
     # print(f"{sim_disp_grid_avg.shape=}")
     # print()
     # print(f"{np.max(sim_disp_grid_avg)=}")
-    # print(f"{np.min(sim_disp_grid_avg)=}")
+    # print(f"{np.min(sim_disp_grid_avsaveg)=}")
     # print()
     # print(f"{color_max=}")
     # print(f"{color_min=}")
@@ -282,9 +289,17 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
     cbar.ax.tick_params(labelsize=cbar_font_size)
 
     if scale_cbar:
-        fig.savefig(Path("images")/f"disp_comp_{ax_str}.png",dpi=300,format="png",bbox_inches="tight")
+        if save_tag:
+            save_path = Path("images")/f"disp_comp_{ax_str}_{save_tag}.png"
+        else:
+            save_path = Path("images")/f"disp_comp_{ax_str}.png"
     else:
-        fig.savefig(Path("images")/f"disp_comp_{ax_str}_cbarfree.png",dpi=300,format="png",bbox_inches="tight")
+        if save_tag:
+            save_path = Path("images")/f"disp_comp_{ax_str}_cbarfree_{save_tag}.png"
+        else:
+            save_path = Path("images")/f"disp_comp_{ax_str}_cbarfree.png"
+
+    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
 
 def _interp_one_instance(coords: np.ndarray,
@@ -508,7 +523,8 @@ def mavm(model_data,
 
 def mavm_figs(mavm_res: dict[str,Any],
               title_str: str,
-              field_label: str) -> None:
+              field_label: str,
+              save_tag: str = "") -> None:
 
     model_cdf = mavm_res["model_cdf"]
     exp_cdf = mavm_res["exp_cdf"]
@@ -541,8 +557,11 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.set_title(title_str,fontsize=plot_opts.font_head_size)
     axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+    if save_tag:
+        save_path = Path("images") / f"mavm ci {field_label} {title_str} {save_tag}.png"
+    else:
+        save_path = Path("images") / f"mavm ci {field_label} {title_str}.png"
 
-    save_path = Path("images") / f"mavm ci {field_label} {title_str}.png"
     fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
     fig,axs=plt.subplots(1,1,
@@ -559,7 +578,11 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-    save_path = Path("images") / f"mavm fill {field_label} {title_str}.png"
+    if save_tag:
+        save_path = Path("images") / f"mavm fill {field_label} {title_str} {save_tag}.png"
+    else:
+        save_path = Path("images") / f"mavm fill {field_label} {title_str}.png"
+
     fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
 def plot_mavm_map(mavm_d_plus: np.ndarray,
@@ -567,7 +590,8 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
                   ax_ind: int,
                   ax_str: str,
                   grid_shape: tuple[int,int],
-                  extent: tuple[float,float,float,float]) -> None:
+                  extent: tuple[float,float,float,float],
+                  save_tag: str = "") -> None:
 
     plot_opts = pyvale.PlotOptsGeneral()
     fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2))
@@ -592,6 +616,10 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
     ax[1].set_xlabel("x [mm]",fontsize=plot_opts.font_ax_size)
     ax[1].set_ylabel("y [mm]",fontsize=plot_opts.font_ax_size)
 
-    fig.savefig(Path("images")/f"mavm_map_disp{ax_str}.png",dpi=300,format="png",bbox_inches="tight")
+    if save_tag:
+        save_path = Path("images")/f"mavm_map_disp{ax_str}_{save_tag}.png"
+    else:
+        save_path = Path("images")/f"mavm_map_disp{ax_str}.png"
+    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
 
