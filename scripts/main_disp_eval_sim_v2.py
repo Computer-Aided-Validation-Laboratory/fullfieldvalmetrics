@@ -207,7 +207,7 @@ def main() -> None:
     sim_y_min = np.min(sim_coords[:,1])
     sim_y_max = np.max(sim_coords[:,1])
 
-    plot_disp_sim_exp = True
+    plot_disp_sim_exp = False
     if plot_disp_sim_exp:
         frame = 500
         div_n = 1000
@@ -263,7 +263,7 @@ def main() -> None:
     # NOTE: coords are flipped compared to plotted maps above!
     # EXPERIMENT STEADY STATE: 300-650
 
-    plot_disp_traces = True
+    plot_disp_traces = False
     if plot_disp_traces:
         ax_ind: int = 0
         fig,ax = plt.subplots()
@@ -436,13 +436,13 @@ def main() -> None:
                                exp_disp_common[:,mavm_inds[ax_str][0],yy])
 
 
-    print(80*"-")
-    print(f"{mavm_inds['x']=}")
-    print(f"{mavm_inds['y']=}")
-    print(f"{coords_common[mavm_inds['x'],:]=}")
-    print(f"{coords_common[mavm_inds['y'],:]=}")
-    print(80*"-")
-    print()
+    # print(80*"-")
+    # print(f"{mavm_inds['x']=}")
+    # print(f"{mavm_inds['y']=}")
+    # print(f"{coords_common[mavm_inds['x'],:]=}")
+    # print(f"{coords_common[mavm_inds['y'],:]=}")
+    # print(80*"-")
+    # print()
 
     plot_mavm = True
     if plot_mavm:
@@ -460,23 +460,25 @@ def main() -> None:
               field_label,
               save_tag=SIM_TAG)
 
-    print(80*"-")
-    print(f"{type(mavm_res['x']['d+'])=}")
-    print(f"{type(mavm_res['x']['d-'])=}")
-    print(f"{type(mavm_res['y']['d+'])=}")
-    print(f"{type(mavm_res['y']['d-'])=}")
-    print()
-    print(f"{mavm_res['x']['d+']=}")
-    print(f"{mavm_res['x']['d-']=}")
-    print(f"{mavm_res['y']['d+']=}")
-    print(f"{mavm_res['y']['d-']=}")
-    print(80*"-")
+    # print(80*"-")
+    # print(f"{type(mavm_res['x']['d+'])=}")
+    # print(f"{type(mavm_res['x']['d-'])=}")
+    # print(f"{type(mavm_res['y']['d+'])=}")
+    # print(f"{type(mavm_res['y']['d-'])=}")
+    # print()
+    # print(f"{mavm_res['x']['d+']=}")
+    # print(f"{mavm_res['x']['d-']=}")
+    # print(f"{mavm_res['y']['d+']=}")
+    # print(f"{mavm_res['y']['d-']=}")
+    # print(80*"-")
+
     #---------------------------------------------------------------------------
     # Calculate the mavm d+,d- full-field
+    force_mavm_map = True
     mavm_d_plus_path = temp_path / f"mavm_d_plus_{SIM_TAG}.npy"
     mavm_d_minus_path = temp_path / f"mavm_d_minus_{SIM_TAG}.npy"
 
-    if not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file():
+    if force_mavm_map or (not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file()):
         print("Calculating MAVM d+ and d- over all points for all disp comps.")
         mavm_d_plus = np.zeros((grid_pts,3))
         mavm_d_minus = np.zeros((grid_pts,3))

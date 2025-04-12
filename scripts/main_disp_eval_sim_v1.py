@@ -366,7 +366,7 @@ def main() -> None:
     grid_shape = x_grid.shape
     grid_pts = x_grid.size
 
-    force_interp_common = True
+    force_interp_common = False
     sim_disp_common_path = temp_path / "sim_disp_common.npy"
     exp_disp_common_path = temp_path / "exp_disp_common.npy"
 
@@ -443,13 +443,13 @@ def main() -> None:
         ax_str = "x"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
-                f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+                f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
                 field_label)
 
         ax_str = "y"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
-              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
               field_label)
 
 
@@ -466,15 +466,11 @@ def main() -> None:
     print(80*"-")
 
 
-    #---------------------------------------------------------------------------
-    # Final show to pop all produced figures
-    print("COMPLETE.")
-    plt.show()
-    return
+
 
     #---------------------------------------------------------------------------
     # Calculate the mavm d+,d- full-field
-    force_mavm = False
+    force_mavm = True
     mavm_d_plus_path = temp_path / "mavm_d_plus.npy"
     mavm_d_minus_path = temp_path / "mavm_d_minus.npy"
 
@@ -518,6 +514,11 @@ def main() -> None:
                         grid_shape,
                         extent)
 
+    #---------------------------------------------------------------------------
+    # Final show to pop all produced figures
+    print("COMPLETE.")
+    plt.show()
+    return
 
 
 
