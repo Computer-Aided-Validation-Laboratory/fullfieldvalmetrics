@@ -396,8 +396,9 @@ def interp_exp_to_common_grid(coords: np.ndarray,
 
 #-------------------------------------------------------------------------------
 # MAVM Calculation
-def mavm(model_data,
-         exp_data
+def mavm(model_data: np.ndarray,
+         exp_data: np.ndarray,
+         test: str | None = None
          ) -> dict[str,Any]:
     """
     Calculates the Modified Area Validation Metric.
@@ -405,92 +406,111 @@ def mavm(model_data,
     Downloaded from http://asmedigitalcollection.asme.org/verification/article-pdf/8/1/011001/6974199/vvuq_008_01_011001.pdf on 24 May 2024.
     """
 
-    S_num_mod = model_data.shape[0]
-    N_num_exp = exp_data.shape[0]
-
     # find empirical cdf
     model_cdf = stats.ecdf(model_data).cdf
     exp_cdf = stats.ecdf(exp_data).cdf
 
-    F_mod_vec = model_cdf.quantiles
-    Sn_exp_vec = exp_cdf.quantiles
+    F_mod_vec = np.copy(model_cdf.quantiles)
+    Sn_exp_vec = np.copy(exp_cdf.quantiles)
+
+    # NOTE: the CDF can have a different number of bins to the number of sims/experiments
+    S_num_mod = F_mod_vec.shape[0]
+    N_num_exp = Sn_exp_vec.shape[0]
 
     df = len(Sn_exp_vec)-1
     t_alph = stats.t.ppf(0.95,df)
 
-    Sn_conf_exp_list = [Sn_exp_vec - t_alph*(np.nanstd(Sn_exp_vec)/np.sqrt(N_num_exp)),
-               Sn_exp_vec + t_alph*(np.nanstd(Sn_exp_vec)/np.sqrt(N_num_exp))]
+    Sn_conf_exp_list = [
+        Sn_exp_vec - t_alph*(np.nanstd(Sn_exp_vec)/np.sqrt(N_num_exp)),
+        Sn_exp_vec + t_alph*(np.nanstd(Sn_exp_vec)/np.sqrt(N_num_exp))
+    ]
 
-    Sn_Y_exp_vec = exp_cdf.probabilities
-    F_Y_mod_vec = model_cdf.probabilities
+    Sn_Y_exp_vec = np.copy(exp_cdf.probabilities)
+    F_Y_mod_vec = np.copy(model_cdf.probabilities)
 
     p_F_mod_scalar = 1/S_num_mod
     p_Sn_exp_scalar = 1/N_num_exp
 
-    # print(80*"=")
-    # print(f"{model_data.shape=}")
-    # print(f"{model_cdf.quantiles.shape=}")
-    # print(f"{model_cdf.probabilities.shape=}")
-    # print()
-    # print(f"{exp_data.shape=}")
-    # print(f"{exp_cdf.quantiles.shape=}")
-    # print(f"{exp_cdf.probabilities.shape=}")
-    # print()
+    if test is not None:
+        print(80*"=")
+        print(f"{model_data.shape=}")
+        print(f"{model_cdf.quantiles.shape=}")
+        print(f"{model_cdf.probabilities.shape=}")
+        print()
+        print(f"{exp_data.shape=}")
+        print(f"{exp_cdf.quantiles.shape=}")
+        print(f"{exp_cdf.probabilities.shape=}")
+        print()
 
-    # print("EXP QUANTS")
-    # print(exp_cdf.quantiles)
-    # print("EXP PROBS")
-    # print(exp_cdf.probabilities)
-    # print("EXP CONF UP")
-    # print(Sn_conf_exp_list[1])
-    # print("EXP CONF LOW")
-    # print(Sn_conf_exp_list[0])
-    # print()
-    # print("MODEL QUANTS")
-    # print(model_cdf.quantiles)
-    # print("MODEL PROBS")
-    # print(model_cdf.probabilities)
-    # print()
-    # print(80*"=")
+        print("EXP QUANTS")
+        print(exp_cdf.quantiles)
+        print("EXP PROBS")
+        print(exp_cdf.probabilities)
+        print("EXP CONF UP")
+        print(Sn_conf_exp_list[1])
+        print("EXP CONF LOW")
+        print(Sn_conf_exp_list[0])
+        print()
+        print("MODEL QUANTS")
+        print(model_cdf.quantiles)
+        print("MODEL PROBS")
+        print(model_cdf.probabilities)
+        print()
+        print(80*"=")
 
-    # (fig,ax) = plt.subplots()
-    # plt.plot(model_cdf.quantiles,model_cdf.probabilities)
-    # plt.show()
+        save_path = Path.cwd()/"tests"
+        if not save_path.is_dir():
+            save_path.mkdir()
+
+        model_cdf_save = np.vstack((model_cdf.probabilities,model_cdf.quantiles)).T
+        np.savetxt(save_path/f"model_cdf_{test}.txt",model_cdf_save,delimiter=",")
+        exp_cdf_save = np.vstack((exp_cdf.probabilities,exp_cdf.quantiles)).T
+        np.savetxt(save_path/f"exp_cdf_{test}.txt",exp_cdf_save,delimiter=",")
+
+        save_data = np.atleast_2d(exp_data).T
+        np.savetxt(save_path/f"exp_data_{test}.txt",save_data,delimiter=",")
 
     d_conf_plus: list = []
     d_conf_minus: list = []
 
     tol = 1e-12
 
-    for k in [0,1]:
-        # print(80*"=")
-        # print(f"CONFIDENCE BOUND, k: {k}")
-        # print()
+
+
+    for kk in [0,1]:
+        if test is not None:
+            print(80*"=")
+            print(f"CONFIDENCE BOUND, k: {kk}")
+            print()
 
         # USed to step through the longer of experiment vs simulation
         ii: int = 0
 
-        #
         d_rem: float = 0.0
-
         d_plus: float = 0.0
         d_minus: float = 0.0
 
         # Grab the lower [0] or upper [1] bound of the confidence interval
-        Sn_exp_vec = Sn_conf_exp_list[k]
+        Sn_exp_vec = np.copy(Sn_conf_exp_list[kk])
 
         #If more experimental data points than model data points
         if N_num_exp > S_num_mod:
-            #print(80*"=")
+            if test is not None:
+                print(80*"=")
+                print("More experiments than simulations")
+                print(f"{(N_num_exp > S_num_mod)=}")
+                print()
+
             # We step through the simulation as we have less simulation points
             for jj in range(len(F_mod_vec)):
 
-                # print(80*"-")
-                # print(f"Model: {jj}")
-                # print(f"{d_rem=}")
-                # print(f"{((d_rem >= tol) or (d_rem <= -tol))=}")
-                # print(80*"-")
-                # print()
+                if test is not None:
+                    print(80*"-")
+                    print(f"Model: {jj}")
+                    print(f"{d_rem=}")
+                    print(f"{((d_rem >= tol) or (d_rem <= -tol))=}")
+                    print(80*"-")
+                    print()
 
                 if (d_rem >= tol) or (d_rem <= -tol): # Fixed floating point issues here
 
@@ -502,20 +522,21 @@ def mavm(model_data,
                     else:
                         d_minus += d_ii
 
-                    # print("REMAINDER BLOCK")
-                    # print(f"Experiment: {ii}")
-                    # print(f"{Sn_exp_vec[ii]=}")
-                    # print(f"{F_mod_vec[jj]=}")
-                    # print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
-                    # print()
-                    # print(f"{(p_Sn_exp_scalar*(ii+1))=}")
-                    # print(f"{(p_F_mod_scalar*jj)=}")
-                    # print(f"{(p_Sn_exp_scalar*(ii+1) - p_F_mod_scalar*jj)=}")
-                    # print()
-                    # print(f"{d_ii=}")
-                    # print(f"{d_plus=}")
-                    # print(f"{d_minus=}")
-                    # print()
+                    if test is not None:
+                        print("REMAINDER BLOCK")
+                        print(f"Experiment: {ii}")
+                        print(f"{Sn_exp_vec[ii]=}")
+                        print(f"{F_mod_vec[jj]=}")
+                        print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
+                        print()
+                        print(f"{(p_Sn_exp_scalar*(ii+1))=}")
+                        print(f"{(p_F_mod_scalar*jj)=}")
+                        print(f"{(p_Sn_exp_scalar*(ii+1) - p_F_mod_scalar*jj)=}")
+                        print()
+                        print(f"{d_ii=}")
+                        print(f"{d_plus=}")
+                        print(f"{d_minus=}")
+                        print()
 
                     ii += 1
 
@@ -528,23 +549,24 @@ def mavm(model_data,
                     # d_ii = (Sn_exp_vec[ii] - F_mod_vec[jj])*p_F_mod_scalar
                     d_ii = (Sn_exp_vec[ii] - F_mod_vec[jj])*p_Sn_exp_scalar
 
-                    if d_ii > 0:
+                    if d_ii > tol:
                         d_plus += d_ii
                     else:
                         d_minus += d_ii
 
-                    # print("WHILE BLOCK:")
-                    # print(f"Experiment: {ii}")
-                    # print(f"{Sn_exp_vec[ii]=}")
-                    # print(f"{F_mod_vec[jj]=}")
-                    # print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
-                    # print(f"{p_F_mod_scalar=}")
-                    # print(f"{p_Sn_exp_scalar=}")
-                    # print()
-                    # print(f"{d_ii=}")
-                    # print(f"{d_plus=}")
-                    # print(f"{d_minus=}")
-                    # print()
+                    if test is not None:
+                        print("WHILE BLOCK:")
+                        print(f"Experiment: {ii}")
+                        print(f"{Sn_exp_vec[ii]=}")
+                        print(f"{F_mod_vec[jj]=}")
+                        print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
+                        print(f"{p_F_mod_scalar=}")
+                        print(f"{p_Sn_exp_scalar=}")
+                        print()
+                        print(f"{d_ii=}")
+                        print(f"{d_plus=}")
+                        print(f"{d_minus=}")
+                        print()
 
                     ii += 1
 
@@ -555,63 +577,128 @@ def mavm(model_data,
                 else:
                     d_minus += d_rem
 
-            #     print("FINAL BLOCK:")
-            #     print(f"{Sn_exp_vec[ii]=}")
-            #     print(f"{F_mod_vec[jj]=}")
-            #     print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
-            #     print()
+                if test is not None:
+                    print("FINAL BLOCK:")
+                    print(f"{Sn_exp_vec[ii]=}")
+                    print(f"{F_mod_vec[jj]=}")
+                    print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
+                    print()
 
-            #     print(f"{d_plus=}")
-            #     print(f"{d_minus=}")
-            #     print(f"{d_rem=}")
+                    print(f"{d_plus=}")
+                    print(f"{d_minus=}")
+                    print(f"{d_rem=}")
 
-            # print()
-            # print(80*"=")
+            if test is not None:
+                print()
+                print(80*"=")
 
+        #=======================================================================
         #If more model data points than experimental data points (more typical)
-        elif len(Sn_exp_vec) <= len(F_mod_vec):
+        elif N_num_exp <= S_num_mod:
+
+            if test is not None:
+                print(80*"=")
+                print("More simulations than experiments")
+                print(f"{(N_num_exp <= S_num_mod)=}")
+                print()
 
             for jj in range(0,len(Sn_exp_vec)):
 
+                if test is not None:
+                    print(80*"-")
+                    print(f"Model: {jj}")
+                    print(f"{d_rem=}")
+                    print(f"{((d_rem >= tol) or (d_rem <= -tol))=}")
+                    print(80*"-")
+                    print()
+
                 if (d_rem >= tol) or (d_rem <= -tol):
                     d_ii = (Sn_exp_vec[jj]-F_mod_vec[ii])*(p_F_mod_scalar*(ii+1) - p_Sn_exp_scalar*jj)
-                    if d_ii > 0:
+
+                    if d_ii > tol:
                         d_plus += d_ii
                     else:
+
                         d_minus += d_ii
+
+                    if test is not None:
+                        print(f"REMAINDER BLOCK: kk={kk},mod[{ii}],exp[{jj}]")
+                        print(f"Simulation: {ii}")
+                        print(f"{Sn_exp_vec[jj]=}")
+                        print(f"{F_mod_vec[ii]=}")
+                        print(f"{(Sn_exp_vec[jj] - F_mod_vec[ii])=}")
+                        print()
+                        print(f"{(p_Sn_exp_scalar*jj)=}")
+                        print(f"{(p_F_mod_scalar*(ii+1))=}")
+                        print(f"{(p_F_mod_scalar*(ii+1) - p_Sn_exp_scalar*jj)=}")
+                        print()
+                        print(f"{d_ii=}")
+                        print(f"{d_plus=}")
+                        print(f"{d_minus=}")
+                        print()
+
                     ii += 1
 
                 while (ii+1)*p_F_mod_scalar < (jj+1)*p_Sn_exp_scalar:
                     d_ii = (Sn_exp_vec[jj]-F_mod_vec[ii])*p_F_mod_scalar
-                    if d_ii > 0:
+                    if d_ii > tol:
                         d_plus += d_ii
                     else:
                         d_minus += d_ii
 
+                    if test is not None:
+                        print("WHILE BLOCK:")
+                        print(f"Simulation: {ii}")
+                        print(f"{Sn_exp_vec[jj]=}")
+                        print(f"{F_mod_vec[ii]=}")
+                        print(f"{(Sn_exp_vec[jj] - F_mod_vec[ii])=}")
+                        print(f"{p_F_mod_scalar=}")
+                        print(f"{p_Sn_exp_scalar=}")
+                        print()
+                        print(f"{d_ii=}")
+                        print(f"{d_plus=}")
+                        print(f"{d_minus=}")
+                        print()
+
                     ii += 1
 
                 d_rem = (Sn_exp_vec[jj]-F_mod_vec[ii])*(p_Sn_exp_scalar*(jj+1) - p_F_mod_scalar*ii)
-                if d_rem > 0:
+                if d_rem > tol:
                     d_plus += d_rem
                 else:
                     d_minus += d_rem
+
+                if test is not None:
+                    print("FINAL BLOCK:")
+                    print(f"{Sn_exp_vec[jj]=}")
+                    print(f"{F_mod_vec[ii]=}")
+                    print(f"{(Sn_exp_vec[jj] - F_mod_vec[ii])=}")
+                    print()
+
+                    print(f"{d_plus=}")
+                    print(f"{d_minus=}")
+                    print(f"{d_rem=}")
+
+            if test is not None:
+                print()
+                print(80*"=")
 
         # This is a two element list
         d_conf_plus.append(np.abs(d_plus))
         d_conf_minus.append(np.abs(d_minus))
 
 
-
     d_plus = np.nanmax(d_conf_plus)
     d_minus = np.nanmax(d_conf_minus)
 
-    # print()
-    # print("CALCULATION END")
-    # print(f"{d_conf_plus=}")
-    # print(f"{d_conf_minus=}")
-    # print(f"{d_plus=}")
-    # print(f"{d_minus=}")
-    # print()
+    if test is not None:
+        print()
+        print("CALCULATION END")
+        print(f"{d_conf_plus=}")
+        print(f"{d_conf_minus=}")
+        print(f"{d_plus=}")
+        print(f"{d_minus=}")
+        print()
 
     output_dict = {"model_cdf":model_cdf,
                    "exp_cdf":exp_cdf,

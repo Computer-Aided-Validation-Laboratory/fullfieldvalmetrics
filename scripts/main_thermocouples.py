@@ -74,18 +74,78 @@ def main() -> None:
     # ANALYSE MAVM
     mavm_res = []
     for ii,ee in enumerate(exp_data):
-        mavm_res.append(vm.mavm(sim_data[:,ii],ee))
+        this_mavm = vm.mavm(sim_data[:1000,ii],ee,test="TC1test")
+        mavm_res.append(this_mavm)
 
         field_label = r"Temp. [$^{\circ}C$]"
         field_tag = "Temp"
         title_str = tc_tags[ii]
         save_tag = ""
 
-        vm.mavm_figs(mavm_res[ii],
-              title_str,
-              field_label,
-              field_tag=field_tag,
-              save_tag=save_tag)
+        vm.mavm_figs(this_mavm,
+                     title_str,
+                     field_label,
+                     field_tag=field_tag,
+                     save_tag=save_tag)
+
+        print(80*"-")
+        print(f"{ii=}")
+        print(f"{ee.shape=}")
+        print(f"{sim_data[:,ii].shape=}")
+        print(f"{np.mean(ee)=}")
+        print(f"{np.mean(sim_data[:,ii])=}")
+        print()
+        print(f"{this_mavm['d+']=}")
+        print(f"{this_mavm['d-']=}")
+        print(80*"-")
+
+
+    #---------------------------------------------------------------------------
+    # TESTING
+    # use_exps = 100
+    # use_sims = 1000
+
+    # this_mavm = vm.mavm(np.copy(sim_data[:use_sims,0]),
+    #                     np.copy(exp_data[0][:use_exps]),
+    #                     test="WHY")
+
+    # vm.mavm_figs(mavm_res,
+    #              title_str,
+    #              field_label,
+    #              field_tag=field_tag,
+    #              save_tag=save_tag)
+
+    # print(80*"-")
+    # print(f"{sim_data[:use_sims,0].shape=}")
+    # print(f"{exp_data[0][:use_exps].shape=}")
+    # print()
+    # print(f"{np.isnan(sim_data[:use_sims,0]).sum()=}")
+    # print(f"{np.isnan(exp_data[0][:use_exps]).sum()=}")
+    # print()
+    # print(f"{np.mean(sim_data[:use_sims,0])=}")
+    # print(f"{np.std(sim_data[:use_sims,0])=}")
+    # print()
+    # print(f"{np.mean(exp_data[0][:use_exps])=}")
+    # print(f"{np.std(exp_data[0][:use_exps])=}")
+    # print(f"{np.max(exp_data[0][:use_exps])=}")
+    # print(f"{np.min(exp_data[0][:use_exps])=}")
+    # print(f"{np.unique(exp_data[0][:use_exps])}")
+    # print()
+    # print(f"{this_mavm['d+']=}")
+    # print(f"{this_mavm['d-']=}")
+    # print(80*"-")
+
+    # field_label = r"Temp. [$^{\circ}C$]"
+    # field_tag = "Temp"
+    # title_str = tc_tags[0]
+    # save_tag = ""
+
+    # vm.mavm_figs(this_mavm,
+    #                 title_str,
+    #                 field_label,
+    #                 field_tag=field_tag,
+    #                 save_tag=save_tag)
+
 
     plt.show()
 
