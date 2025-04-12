@@ -451,6 +451,7 @@ def main() -> None:
         vm.mavm_figs(mavm_res[ax_str],
                 f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
                 field_label,
+                field_tag="dispx",
                 save_tag=SIM_TAG)
 
         ax_str = "y"
@@ -458,6 +459,7 @@ def main() -> None:
         vm.mavm_figs(mavm_res[ax_str],
               f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
               field_label,
+              field_tag="dispy",
               save_tag=SIM_TAG)
 
     # print(80*"-")

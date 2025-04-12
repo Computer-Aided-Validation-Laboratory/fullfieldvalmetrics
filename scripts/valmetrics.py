@@ -627,6 +627,7 @@ def mavm(model_data,
 def mavm_figs(mavm_res: dict[str,Any],
               title_str: str,
               field_label: str,
+              field_tag: str = "",
               save_tag: str = "") -> None:
 
     model_cdf = mavm_res["model_cdf"]
@@ -661,9 +662,9 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
     if save_tag:
-        save_path = Path("images") / f"mavm ci {field_label} {title_str} {save_tag}.png"
+        save_path = Path("images") / f"mavm_ci_{field_tag}_{title_str}_{save_tag}.png"
     else:
-        save_path = Path("images") / f"mavm ci {field_label} {title_str}.png"
+        save_path = Path("images") / f"mavm_ci_{field_tag}_{title_str}.png"
 
     fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 
@@ -688,9 +689,9 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
     if save_tag:
-        save_path = Path("images") / f"mavm fill {field_label} {title_str} {save_tag}.png"
+        save_path = Path("images") / f"mavm_fill_{field_tag}_{title_str}_{save_tag}.png"
     else:
-        save_path = Path("images") / f"mavm fill {field_label} {title_str}.png"
+        save_path = Path("images") / f"mavm_fill_{field_tag}_{title_str}.png"
 
     fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
 

@@ -444,13 +444,15 @@ def main() -> None:
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
                 f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
-                field_label)
+                field_label,
+                field_tag="dispx")
 
         ax_str = "y"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
               f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
-              field_label)
+              field_label,
+              field_tag="dispy")
 
 
     print(80*"-")
