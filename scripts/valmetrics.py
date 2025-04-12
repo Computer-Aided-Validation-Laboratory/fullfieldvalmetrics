@@ -221,18 +221,6 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
     color_max = np.nanmax((np.nanmax(sim_disp_grid_avg),np.nanmax(exp_disp_grid_avg)))
     color_min = np.nanmin((np.nanmin(sim_disp_grid_avg),np.nanmin(exp_disp_grid_avg)))
 
-    # print(80*"-")
-    # print(f"{sim_disp_avg.shape=}")
-    # print(f"{sim_disp_avg[:,ax_ind].shape=}")
-    # print(f"{sim_disp_grid_avg.shape=}")
-    # print()
-    # print(f"{np.max(sim_disp_grid_avg)=}")
-    # print(f"{np.min(sim_disp_grid_avsaveg)=}")
-    # print()
-    # print(f"{color_max=}")
-    # print(f"{color_min=}")
-    # print(80*"-")
-
     cbar_font_size = 6.0
 
     plot_opts = pyvale.PlotOptsGeneral()
@@ -319,10 +307,10 @@ def _interp_one_instance(coords: np.ndarray,
 
 
 def interp_sim_to_common_grid(coords: np.ndarray,
-                          disp: np.ndarray,
-                          x_grid: np.ndarray,
-                          y_grid: np.ndarray,
-                          run_para: None | int = None) -> np.ndarray:
+                              disp: np.ndarray,
+                              x_grid: np.ndarray,
+                              y_grid: np.ndarray,
+                              run_para: None | int = None) -> np.ndarray:
 
 
     if run_para is not None:
@@ -354,9 +342,9 @@ def interp_sim_to_common_grid(coords: np.ndarray,
         print(f"Interpolating: {ss}")
         for aa in range(0,3):
             disp_grid = griddata(coords[:,0:2],
-                                        disp[ss,:,aa],
-                                    (x_grid,y_grid),
-                                    method="linear")
+                                 disp[ss,:,aa],
+                                 (x_grid,y_grid),
+                                 method="linear")
             disp_common[ss,:,aa] = disp_grid.flatten()
 
     return disp_common
@@ -399,9 +387,9 @@ def interp_exp_to_common_grid(coords: np.ndarray,
         print(f"Interpolating: {ss}")
         for aa in range(0,3):
             disp_grid = griddata(coords[ss,:,0:2],
-                                        disp[ss,:,aa],
-                                    (x_grid,y_grid),
-                                    method="linear")
+                                 disp[ss,:,aa],
+                                 (x_grid,y_grid),
+                                 method="linear")
             disp_common[ss,:,aa] = disp_grid.flatten()
 
     return disp_common
@@ -573,6 +561,12 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.plot(F_+d_plus,F_Y,"k--")
     axs.plot(F_-d_minus,F_Y,"k--")
     axs.fill_betweenx(F_Y,F_-d_minus,F_+d_plus,color="k",alpha=0.2)
+    
+    # axs.plot(F_,F_Y,"k-")
+    # axs.plot(d_plus,F_Y,"k--")
+    # axs.plot(d_minus,F_Y,"k--")
+    # axs.fill_betweenx(F_Y,d_minus,d_plus,color="k",alpha=0.2)
+
 
     axs.set_title(title_str,fontsize=plot_opts.font_head_size)
     axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
@@ -584,6 +578,7 @@ def mavm_figs(mavm_res: dict[str,Any],
         save_path = Path("images") / f"mavm fill {field_label} {title_str}.png"
 
     fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
+
 
 def plot_mavm_map(mavm_d_plus: np.ndarray,
                   mavm_d_minus:np.ndarray,

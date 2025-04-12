@@ -19,6 +19,10 @@ def main() -> None:
     print("MAVM Calc for DIC Data")
     print(80*"=")
 
+    temp_path = Path.cwd() / f"temp"
+    if not temp_path.is_dir():
+        temp_path.mkdir()
+
     FE_DIR = Path.cwd()/ "Pulse38_ProbSim_Disp_CamView"
     DIC_DIR = Path.cwd() / "Pulse38_Exp_DIC"
 
@@ -28,8 +32,8 @@ def main() -> None:
         raise FileNotFoundError(f"{DIC_DIR}: directory does not exist.")
 
     #---------------------------------------------------------------------------
-    sim_coord_path = Path.cwd() / "sim_coords.npy"
-    sim_disp_path = Path.cwd() / "sim_disp.npy"
+    sim_coord_path = temp_path / "sim_coords.npy"
+    sim_disp_path = temp_path / "sim_disp.npy"
 
     if not sim_coord_path.is_file() and not sim_disp_path.is_file():
         print(f"Loading csv simulation displacement data from:\n{FE_DIR}")
@@ -56,9 +60,10 @@ def main() -> None:
     sim_disp = 1000*sim_disp
 
     #---------------------------------------------------------------------------
-    exp_coord_path = Path.cwd() / "exp_coords.npy"
-    exp_disp_path = Path.cwd() / "exp_disp.npy"
-    exp_strain_path = Path.cwd() / "exp_strain.npy"
+    exp_coord_path = temp_path / "exp_coords.npy"
+    exp_disp_path = temp_path / "exp_disp.npy"
+    exp_strain_path = temp_path / "exp_strain.npy"
+
     if not exp_coord_path.is_file() and not exp_disp_path.is_file():
         start_time = time.perf_counter()
         print(f"Loading csv experimental displacement data from:\n{DIC_DIR}")
@@ -84,7 +89,6 @@ def main() -> None:
     print()
     print(f"{exp_coords.shape=}")
     print(f"{exp_disp.shape=}")
-    #print(f"{exp_strain.shape=}")
     print()
 
     #---------------------------------------------------------------------------
@@ -121,7 +125,6 @@ def main() -> None:
 
     sim_disp = sim_disp_t
     del sim_disp_t
-
 
     #---------------------------------------------------------------------------
     # Transform Exp Coords: required for each frame
@@ -199,7 +202,7 @@ def main() -> None:
     sim_y_min = np.min(sim_coords[:,1])
     sim_y_max = np.max(sim_coords[:,1])
 
-    plot_disp_sim_exp = True
+    plot_disp_sim_exp = False
     if plot_disp_sim_exp:
         frame = 500
         div_n = 1000
@@ -242,8 +245,9 @@ def main() -> None:
     exp_coords_avg = np.mean(exp_coords,axis=0)
     print(f"{exp_coords_avg.shape=}")
 
-    find_point_0 = np.array([20,-15]) # mm
-    find_point_1 = np.array([0,-15])  # mm
+    # FIND POINTS FOR DIC TRACE!
+    find_point_0 = np.array([20,16]) # mm
+    find_point_1 = np.array([0,16])  # mm
 
     trace_inds_0 = vm.find_nearest_points(exp_coords_avg,find_point_0,k=5)
     trace_inds_1 = vm.find_nearest_points(exp_coords_avg,find_point_1,k=5)
@@ -344,9 +348,7 @@ def main() -> None:
                             ss,
                             scale_cbar=False)
 
-    plt.show()
 
-    return
     #---------------------------------------------------------------------------
     # Calculate the MAVM for a few key points:
     print("Starting MAVM calculation.")
@@ -364,10 +366,11 @@ def main() -> None:
     grid_shape = x_grid.shape
     grid_pts = x_grid.size
 
-    sim_disp_common_path = Path.cwd() / "sim_disp_common.npy"
-    exp_disp_common_path = Path.cwd() / "exp_disp_common.npy"
+    force_interp_common = True
+    sim_disp_common_path = temp_path / "sim_disp_common.npy"
+    exp_disp_common_path = temp_path / "exp_disp_common.npy"
 
-    if not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file():
+    if force_interp_common or (not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file()):
         print("Interpolating simulation displacements to common grid.")
         start_time = time.perf_counter()
         sim_disp_common = vm.interp_sim_to_common_grid(sim_coords,
@@ -407,51 +410,75 @@ def main() -> None:
     print(f"{coords_common.shape=}")
     print()
 
-    find_point_x = np.array([24.0,-16.5]) # mm
-    find_point_y = np.array([0.0,-16.5])  # mm
+    # FIND POINTS FOR MAVM
+    find_point_x = np.array([24.0,-16.0]) # mm
+    find_point_y = np.array([0.0,-16.0])  # mm
+
     mavm_inds = {}
     mavm_inds["x"] = vm.find_nearest_points(coords_common,find_point_x,k=3)
     mavm_inds["y"] = vm.find_nearest_points(coords_common,find_point_y,k=3)
 
-    print(f"{mavm_inds['x']}")
-    print(f"{mavm_inds['y']}")
-    print(f"{coords_common[mavm_inds['x'],:]=}")
-    print(f"{coords_common[mavm_inds['y'],:]=}")
+    mavm_res = {}
+
+    xx: int = 0
+    yy: int = 1
 
     ax_str = "x"
-    mavm_res = {}
-    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
-                            exp_disp_common[:,mavm_inds[ax_str][0],0])
+    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],xx],
+                               exp_disp_common[:,mavm_inds[ax_str][0],xx])
     ax_str = "y"
-    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
-                            exp_disp_common[:,mavm_inds[ax_str][0],0])
+    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],yy],
+                               exp_disp_common[:,mavm_inds[ax_str][0],yy])
+
+    print(80*"-")
+    print(f"{mavm_inds['x']=}")
+    print(f"{mavm_inds['y']=}")
+    print(f"{coords_common[mavm_inds['x'],:]=}")
+    print(f"{coords_common[mavm_inds['y'],:]=}")
+    print(80*"-")
+    print()
 
     plot_mavm = True
     if plot_mavm:
+        ax_str = "x"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
-                f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+                f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
                 field_label)
+
+        ax_str = "y"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
-              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
+              f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
               field_label)
 
+
     print(80*"-")
-    print(type(mavm_res["x"]["d+"]))
-    print(type(mavm_res["x"]["d-"]))
-    print(mavm_res["x"]["d+"].shape)
-    print(mavm_res["x"]["d-"].shape)
-    print(mavm_res["x"]["d+"])
-    print(mavm_res["x"]["d-"])
+    print(f"{type(mavm_res['x']['d+'])=}")
+    print(f"{type(mavm_res['x']['d-'])=}")
+    print(f"{type(mavm_res['y']['d+'])=}")
+    print(f"{type(mavm_res['y']['d-'])=}")
+    print()
+    print(f"{mavm_res['x']['d+']=}")
+    print(f"{mavm_res['x']['d-']=}")
+    print(f"{mavm_res['y']['d+']=}")
+    print(f"{mavm_res['y']['d-']=}")
     print(80*"-")
+
+
+    #---------------------------------------------------------------------------
+    # Final show to pop all produced figures
+    print("COMPLETE.")
+    plt.show()
+    return
 
     #---------------------------------------------------------------------------
     # Calculate the mavm d+,d- full-field
-    mavm_d_plus_path = Path.cwd() / "mavm_d_plus.npy"
-    mavm_d_minus_path = Path.cwd() / "mavm_d_minus.npy"
+    force_mavm = False
+    mavm_d_plus_path = temp_path / "mavm_d_plus.npy"
+    mavm_d_minus_path = temp_path / "mavm_d_minus.npy"
 
-    if not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file():
+    if force_mavm or (not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file()):
         print("Calculating MAVM d+ and d- over all points for all disp comps.")
         mavm_d_plus = np.zeros((grid_pts,3))
         mavm_d_minus = np.zeros((grid_pts,3))
@@ -478,21 +505,20 @@ def main() -> None:
     print(f"{mavm_d_plus.shape=}")
     print(f"{mavm_d_minus.shape=}")
 
-    ax_strs = ("x","y","z")
-    ax_inds = (0,1,2)
-    extent = (sim_x_min,sim_x_max,sim_y_min,sim_y_max)
-    for ii,ss in zip(ax_inds,ax_strs):
-        vm.plot_mavm_map(mavm_d_plus,
-                      mavm_d_minus,
-                      ii,
-                      ss,
-                      grid_shape,
-                      extent)
+    plot_mavm_map = True
+    if plot_mavm_map:
+        ax_strs = ("x","y","z")
+        ax_inds = (0,1,2)
+        extent = (sim_x_min,sim_x_max,sim_y_min,sim_y_max)
+        for ii,ss in zip(ax_inds,ax_strs):
+            vm.plot_mavm_map(mavm_d_plus,
+                        mavm_d_minus,
+                        ii,
+                        ss,
+                        grid_shape,
+                        extent)
 
-    #---------------------------------------------------------------------------
-    # Final show to pop all produced figures
-    print("COMPLETE.")
-    plt.show()
+
 
 
 if __name__ == "__main__":

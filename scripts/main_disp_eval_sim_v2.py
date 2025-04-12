@@ -19,7 +19,11 @@ def main() -> None:
     print("MAVM Calc for DIC Data")
     print(80*"=")
 
+
     SIM_TAG = "v2"
+    temp_path = Path.cwd() / f"temp_{SIM_TAG}"
+    if not temp_path.is_dir():
+        temp_path.mkdir()
 
     FE_DIR = Path.cwd()/ "Pulse38_ProbSim_v2_Disp"
     DIC_DIR = Path.cwd() / "Pulse38_Exp_DIC"
@@ -30,11 +34,11 @@ def main() -> None:
         raise FileNotFoundError(f"{DIC_DIR}: directory does not exist.")
 
     #---------------------------------------------------------------------------
-    force_load_csv = True
-    sim_coord_path = Path.cwd() / f"sim_coords_{SIM_TAG}.npy"
-    sim_disp_path = Path.cwd() / f"sim_disp_{SIM_TAG}.npy"
+    force_load_csv = False
+    sim_coord_path = temp_path / f"sim_coords_{SIM_TAG}.npy"
+    sim_disp_path = temp_path / f"sim_disp_{SIM_TAG}.npy"
 
-    if (not sim_coord_path.is_file() and not sim_disp_path.is_file()) or force_load_csv:
+    if force_load_csv or (not sim_coord_path.is_file() and not sim_disp_path.is_file()):
         print(f"Loading csv simulation displacement data from:\n{FE_DIR}")
         start_time = time.perf_counter()
         (sim_coords,sim_disp) = vm.load_sim_data(FE_DIR,skip_header=9)
@@ -59,9 +63,10 @@ def main() -> None:
     sim_disp = 1000*sim_disp
 
     #---------------------------------------------------------------------------
-    exp_coord_path = Path.cwd() / "exp_coords.npy"
-    exp_disp_path = Path.cwd() / "exp_disp.npy"
-    exp_strain_path = Path.cwd() / "exp_strain.npy"
+    exp_coord_path = temp_path / "exp_coords.npy"
+    exp_disp_path = temp_path / "exp_disp.npy"
+    exp_strain_path = temp_path / "exp_strain.npy"
+
     if not exp_coord_path.is_file() and not exp_disp_path.is_file():
         start_time = time.perf_counter()
         print(f"Loading csv experimental displacement data from:\n{DIC_DIR}")
@@ -258,7 +263,7 @@ def main() -> None:
     # NOTE: coords are flipped compared to plotted maps above!
     # EXPERIMENT STEADY STATE: 300-650
 
-    plot_disp_traces = False
+    plot_disp_traces = True
     if plot_disp_traces:
         ax_ind: int = 0
         fig,ax = plt.subplots()
@@ -367,17 +372,18 @@ def main() -> None:
     grid_shape = x_grid.shape
     grid_pts = x_grid.size
 
-    sim_disp_common_path = Path.cwd() / f"sim_disp_common_{SIM_TAG}.npy"
-    exp_disp_common_path = Path.cwd() / f"exp_disp_common_{SIM_TAG}.npy"
+    force_interp_common = False
+    sim_disp_common_path = temp_path / f"sim_disp_common_{SIM_TAG}.npy"
+    exp_disp_common_path = temp_path / f"exp_disp_common_{SIM_TAG}.npy"
 
-    if not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file():
+    if force_interp_common or(not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file()):
         print("Interpolating simulation displacements to common grid.")
         start_time = time.perf_counter()
         sim_disp_common = vm.interp_sim_to_common_grid(sim_coords,
-                                                    sim_disp,
-                                                    x_grid,
-                                                    y_grid,
-                                                    run_para=16)
+                                                       sim_disp,
+                                                       x_grid,
+                                                       y_grid,
+                                                       run_para=16)
         end_time = time.perf_counter()
         print(f"Interpolating sim. displacements took: {end_time-start_time}s\n")
 
@@ -385,10 +391,10 @@ def main() -> None:
         print("Interpolating experiment displacements to common grid.")
         start_time = time.perf_counter()
         exp_disp_common = vm.interp_exp_to_common_grid(exp_coords,
-                                                    exp_disp,
-                                                    x_grid,
-                                                    y_grid,
-                                                    run_para=16)
+                                                       exp_disp,
+                                                       x_grid,
+                                                       y_grid,
+                                                       run_para=16)
         end_time = time.perf_counter()
         print(f"Interpolating exp. displacements took: {end_time-start_time}s\n")
 
@@ -410,33 +416,44 @@ def main() -> None:
     print(f"{coords_common.shape=}")
     print()
 
-    find_point_x = np.array([24.0,-16.5]) # mm
-    find_point_y = np.array([0.0,-16.5])  # mm
+    find_point_x = np.array([24.0,-16.0]) # mm
+    find_point_y = np.array([0.0,-16.0])  # mm
+
     mavm_inds = {}
     mavm_inds["x"] = vm.find_nearest_points(coords_common,find_point_x,k=3)
     mavm_inds["y"] = vm.find_nearest_points(coords_common,find_point_y,k=3)
 
-
-    print(f"{mavm_inds['x']}")
-    print(f"{mavm_inds['y']}")
-    print(f"{coords_common[mavm_inds['x'],:]=}")
-    print(f"{coords_common[mavm_inds['y'],:]=}")
+    xx: int = 0
+    yy: int = 1
 
     ax_str = "x"
     mavm_res = {}
-    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
-                            exp_disp_common[:,mavm_inds[ax_str][0],0])
+
+    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],xx],
+                               exp_disp_common[:,mavm_inds[ax_str][0],xx])
     ax_str = "y"
-    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],0],
-                            exp_disp_common[:,mavm_inds[ax_str][0],0])
+    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],yy],
+                               exp_disp_common[:,mavm_inds[ax_str][0],yy])
+
+
+    print(80*"-")
+    print(f"{mavm_inds['x']=}")
+    print(f"{mavm_inds['y']=}")
+    print(f"{coords_common[mavm_inds['x'],:]=}")
+    print(f"{coords_common[mavm_inds['y'],:]=}")
+    print(80*"-")
+    print()
 
     plot_mavm = True
     if plot_mavm:
+        ax_str = "x"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
                 f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
                 field_label,
                 save_tag=SIM_TAG)
+
+        ax_str = "y"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],
               f"(x,y)=({coords_common[mavm_inds[ax_str][0],0]:.2f},{-1*coords_common[mavm_inds[ax_str][0],1]:.2f})",
@@ -444,18 +461,20 @@ def main() -> None:
               save_tag=SIM_TAG)
 
     print(80*"-")
-    print(type(mavm_res["x"]["d+"]))
-    print(type(mavm_res["x"]["d-"]))
-    print(mavm_res["x"]["d+"].shape)
-    print(mavm_res["x"]["d-"].shape)
-    print(mavm_res["x"]["d+"])
-    print(mavm_res["x"]["d-"])
+    print(f"{type(mavm_res['x']['d+'])=}")
+    print(f"{type(mavm_res['x']['d-'])=}")
+    print(f"{type(mavm_res['y']['d+'])=}")
+    print(f"{type(mavm_res['y']['d-'])=}")
+    print()
+    print(f"{mavm_res['x']['d+']=}")
+    print(f"{mavm_res['x']['d-']=}")
+    print(f"{mavm_res['y']['d+']=}")
+    print(f"{mavm_res['y']['d-']=}")
     print(80*"-")
-
     #---------------------------------------------------------------------------
     # Calculate the mavm d+,d- full-field
-    mavm_d_plus_path = Path.cwd() / f"mavm_d_plus_{SIM_TAG}.npy"
-    mavm_d_minus_path = Path.cwd() / f"mavm_d_minus_{SIM_TAG}.npy"
+    mavm_d_plus_path = temp_path / f"mavm_d_plus_{SIM_TAG}.npy"
+    mavm_d_minus_path = temp_path / f"mavm_d_minus_{SIM_TAG}.npy"
 
     if not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file():
         print("Calculating MAVM d+ and d- over all points for all disp comps.")
