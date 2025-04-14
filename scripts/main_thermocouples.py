@@ -10,6 +10,7 @@ def main() -> None:
 
     # - Analyse these TCs: 1,2,4,5,7,8
     tc_tags = ("TC1","TC2","TC4","TC5","TC7","TC8")
+    tc_nums = np.array((1,2,4,5,7,8),dtype=np.int64)
     num_tcs = len(tc_tags)
 
     #---------------------------------------------------------------------------
@@ -72,6 +73,8 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # ANALYSE MAVM
+    mavm_d = np.zeros((num_tcs,3),dtype=np.float64)
+
     mavm_res = []
     for ii,ee in enumerate(exp_data):
         this_mavm = vm.mavm(sim_data[:1000,ii],ee,test="TC1test")
@@ -99,6 +102,16 @@ def main() -> None:
         print(f"{this_mavm['d-']=}")
         print(80*"-")
 
+        mavm_d[ii,0] = tc_nums[ii]
+        mavm_d[ii,1] = this_mavm['d+']
+        mavm_d[ii,2] = this_mavm['d-']
+
+
+    header = "TC,d+,d-"
+    save_csv = Path.cwd()/"images"/"mavm_tcs_d.csv"
+    with open(save_csv, 'w') as file:
+        file.write(header + '\n')
+        np.savetxt(file,mavm_d, delimiter=",")
 
     #---------------------------------------------------------------------------
     # TESTING
