@@ -3,7 +3,12 @@ TODO*/
 Pulse38_*/
 *.npy
 temp*/
+STC_*/
 
+# Specific exceptions
+!Pulse38_Exp_Thermocouples/
+!STC_ProbSim_Meta/
+!STC_Exp_TCs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

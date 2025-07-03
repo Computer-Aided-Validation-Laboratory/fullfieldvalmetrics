@@ -6,16 +6,125 @@ Copyright (C) 2024 The Computer Aided Validation Team
 ================================================================================
 '''
 from typing import Any
+from dataclasses import dataclass
 from pathlib import Path
+from multiprocessing.pool import Pool
 import numpy as np
 import matplotlib.pyplot as plt
-from multiprocessing.pool import Pool
+import pandas as pd
 from scipy import stats
 from scipy.interpolate import griddata
 import pyvale
 
+#-------------------------------------------------------------------------------
+# pyvale generic exp data reader, need to merge into pyvale main
 
-def load_sim_data(data_path: Path, skip_header: int = 0) -> tuple[np.ndarray,np.ndarray]:
+@dataclass(slots=True)
+class ExpDataLoadOpts:
+    file_ext: str = ".csv"
+    delimiter: str = ","
+    skip_header: int = 1
+    threads_num: int | None = None
+
+
+@dataclass(slots=True)
+class ExpData:
+    coords: dict[str,np.ndarray] | None = None
+    time: dict[str,np.ndarray] | None = None
+    fields: dict[str,np.ndarray] | None = None
+
+
+def load_exp_data(data_path: Path,
+                  field_slices: dict[str,slice],
+                  frames: slice | None = None,
+                  load_opts: ExpDataLoadOpts | None = None
+                  ) -> dict[str,np.ndarray]:
+
+    if not data_path.is_dir():
+        raise FileNotFoundError("Data path does not exist.")
+
+    if load_opts is None:
+        load_opts = ExpDataLoadOpts()
+
+    csv_files = list(data_path.glob("*" + load_opts.file_ext))
+    csv_files = sorted(csv_files)
+
+    if frames is not None:
+        csv_files = csv_files[frames]
+
+    # We load the first csv to find out what shape of data we are expecting
+    data = pd.read_csv(csv_files[0])
+    data = data.to_numpy()
+
+    # Using the first csv we initialise all our numpy arrays to the correct
+    # shape to hold our data as shape=(num_frames,num_points,slice.len)
+    exp_data: dict[str,np.ndarray] = {}
+    for ff in field_slices:
+        # shape=(num_points,slice.len)
+        field_data = data[:,field_slices[ff]]
+        # shape=(num_frames,num_points,slice.len)
+        exp_data[ff] = np.zeros((data.shape[0],
+                                len(csv_files),
+                                field_data.shape[1]))
+        exp_data[ff][:,0,:] = field_data
+
+        #print(f"key={ff} , {field_data.shape=}")
+
+    # We have loaded the first data frame so we can remove it now, then we will
+    # loop over all the others and load them
+    csv_files.pop(0)
+
+    if load_opts.threads_num is not None:
+        assert load_opts.threads_num > 0, "Number of threads must be greater than 0."
+
+        with Pool(load_opts.threads_num) as pool:
+            processes_with_id = []
+
+            for ii,ff in enumerate(csv_files):
+                args = (ff,
+                        field_slices)
+
+                process = pool.apply_async(_load_one_exp, args=args)
+                processes_with_id.append({"process": process,
+                                          "frame": ii+1})
+
+            for pp in processes_with_id:
+                frame_data = pp["process"].get()
+
+                for kk in field_slices:
+                    exp_data[kk][:,pp["frame"],:] = frame_data[kk]
+
+    else:
+        for ii,ff in enumerate(csv_files):
+            # print(f"Loading experiment data file: {ii+1}. From path:")
+            # print(f"{ff}\n")
+
+            data = pd.read_csv(ff)
+            data = data.to_numpy()
+
+            for kk in field_slices:
+                # shape=(num_frames,num_points,slice.len)
+                exp_data[kk][:,ii+1,:] = data[:,field_slices[kk]]
+
+    return exp_data # dict[str,np.ndarray]
+
+def _load_one_exp(path: Path,
+                  field_slices: dict[str,slice]) -> dict[str,np.ndarray]:
+
+    data = pd.read_csv(path)
+    data = data.to_numpy()
+
+    exp_data = {}
+    for ff in field_slices:
+        # shape=(num_points,slice.len)
+        exp_data[ff] = data[:,field_slices[ff]]
+
+    return exp_data
+
+#-------------------------------------------------------------------------------
+
+def load_sim_data_tup(data_path: Path, skip_header: int = 0
+                  ) -> tuple[np.ndarray,np.ndarray]:
     csv_files = list(data_path.glob("*.csv"))
     csv_files = sorted(csv_files)
 
@@ -48,11 +157,11 @@ def load_sim_data(data_path: Path, skip_header: int = 0) -> tuple[np.ndarray,np.
     # fe_data.shape = (num_files,num_nodes,disp[x,y,z])
     return (sim_coords,sim_disp)
 
-def load_exp_data(data_path: Path,
+def load_exp_data_tup(data_path: Path,
                   num_load: int | None = None,
                   run_para: int | None = None
                   ) -> tuple[np.ndarray,np.ndarray,np.ndarray]:
-    
+
     csv_files = list(data_path.glob("*.csv"))
     csv_files = sorted(csv_files)
 

@@ -1,11 +1,3 @@
-'''
-================================================================================
-pyvale: the python validation engine
-License: MIT
-Copyright (C) 2024 The Computer Aided Validation Team
-================================================================================
-'''
-
 import time
 from pathlib import Path
 import numpy as np
@@ -16,7 +8,7 @@ import valmetrics as vm
 
 def main() -> None:
     print(80*"=")
-    print("MAVM Calc for DIC Data")
+    print("MAVM Calc for DIC Data: Pulse 38")
     print(80*"=")
 
 
@@ -34,6 +26,7 @@ def main() -> None:
         raise FileNotFoundError(f"{DIC_DIR}: directory does not exist.")
 
     #---------------------------------------------------------------------------
+    # Load simulation data
     force_load_csv = False
     sim_coord_path = temp_path / f"sim_coords_{SIM_TAG}.npy"
     sim_disp_path = temp_path / f"sim_disp_{SIM_TAG}.npy"
@@ -41,7 +34,7 @@ def main() -> None:
     if force_load_csv or (not sim_coord_path.is_file() and not sim_disp_path.is_file()):
         print(f"Loading csv simulation displacement data from:\n{FE_DIR}")
         start_time = time.perf_counter()
-        (sim_coords,sim_disp) = vm.load_sim_data(FE_DIR,skip_header=9)
+        (sim_coords,sim_disp) = vm.load_sim_data_tup(FE_DIR,skip_header=9)
         end_time = time.perf_counter()
         print(f"Loading csv sim data took: {end_time-start_time}\n")
 
@@ -59,10 +52,12 @@ def main() -> None:
     print(f"{sim_disp.shape=}")
     print()
 
+    # Convert to mm
     sim_coords = 1000*sim_coords
     sim_disp = 1000*sim_disp
 
     #---------------------------------------------------------------------------
+    # Load experimental data
     exp_coord_path = temp_path / "exp_coords.npy"
     exp_disp_path = temp_path / "exp_disp.npy"
     exp_strain_path = temp_path / "exp_strain.npy"
@@ -70,7 +65,7 @@ def main() -> None:
     if not exp_coord_path.is_file() and not exp_disp_path.is_file():
         start_time = time.perf_counter()
         print(f"Loading csv experimental displacement data from:\n{DIC_DIR}")
-        (exp_coords,exp_disp,exp_strain)= vm.load_exp_data(DIC_DIR,
+        (exp_coords,exp_disp,exp_strain)= vm.load_exp_data_tup(DIC_DIR,
                                             num_load=None,
                                             run_para=16)
         end_time = time.perf_counter()
