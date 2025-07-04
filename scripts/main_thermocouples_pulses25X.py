@@ -24,7 +24,9 @@ def main() -> None:
     plot_opts = pyvale.PlotOptsGeneral()
 
     #---------------------------------------------------------------------------
-    # Load Sim Data
+    # Simulation: Load Data
+    print(f"Loading simulation data from:\n    {SIM_DIR}")
+
     # Reduced: 5000 = 100 aleatory x 50 epistemic
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
@@ -58,7 +60,8 @@ def main() -> None:
         # print()
 
     #---------------------------------------------------------------------------
-    # Load Exp Data
+    # Experiment: Load Data
+    print(f"Loading experimental data from:\n    {EXP_DIR}")
 
     exp_file_pre = ["Pulse253","Pulse254","Pulse255"]
     exp_file_post = ["SteadyDICData","SteadyHIVEData","SteadyPICOData"]
@@ -80,23 +83,30 @@ def main() -> None:
             for jj,kk in enumerate(exp_data_keys[ii]):
                 exp_data[kk] = data[:,jj]
 
-    # for ee in exp_data:
-    #     print(f"{ee}")
-    #     print(f"{exp_data[ee].shape}")
-    #     print()
+    print("Loading experimental epistemic error data.")
+    exp_epis_file = Path.cwd() / "STC_ProbSim_Meta" / "STC2_1550A_SteadySummary.csv"
+    exp_epis_err = pd.read_csv(exp_epis_file)
+    exp_epis_err = exp_epis_err.to_numpy()
+    # Extract the last row and columns where the 10 TCs and coil voltage are
+    exp_epis_err = np.array(exp_epis_err[-1,-11:],dtype=np.float64)
 
-
+    # Move the coil voltage from the start to end to match everything else
+    temp = np.copy(exp_epis_err)
+    exp_epis_err[-1] = temp[0]
+    exp_epis_err[0:-1] = temp[1:]
+    del temp
 
     #---------------------------------------------------------------------------
-    # Find Min/Max CDF over all eps
-
+    # Simulation: Find Min/Max CDF over all eps
+    print()
+    print(80*"-")
+    print("Extracting max and min cdf over all simulations.")
 
     # Extract all the simulation cdfs by looping over the epistemic sampling
-    sim_cdfs = {}
-    sim_max_cdf = {}
-    sim_min_cdf = {}
-    sim_max_data = {}
-    sim_min_data = {}
+    sim_cdfs_all = {}
+    sim_data_lims = {}
+    sim_cdfs_lims ={}
+
 
     for kk in sim_data:
         cdfs = []
@@ -110,9 +120,13 @@ def main() -> None:
         sum_min_cdf = np.sum(min_cdf.quantiles)
         sum_max_cdf = np.sum(max_cdf.quantiles)
 
+        accum_cdf = np.zeros_like(max_cdf.quantiles)
+
         for ee in range(epis_n):
             this_cdf = stats.ecdf(sim_data[kk][ee,:]).cdf
             this_cdf_sum = np.sum(this_cdf.quantiles)
+
+            accum_cdf = accum_cdf + this_cdf.quantiles
 
             if this_cdf_sum > sum_max_cdf:
                 sum_max_cdf = this_cdf_sum
@@ -126,26 +140,37 @@ def main() -> None:
 
             cdfs.append(this_cdf)
 
-        sim_cdfs[kk] = cdfs
-        sim_max_cdf[kk] = max_cdf
-        sim_min_cdf[kk] = min_cdf
-        sim_max_data[kk] = max_data
-        sim_min_data[kk] = min_data
+        sim_cdfs_all[kk] = cdfs
+
+        mean_data = accum_cdf / epis_n
+        this_data = {}
+        this_data["max"] = max_data
+        this_data["min"] = min_data
+        this_data["nom"] = mean_data
+        sim_data_lims[kk] = this_data
+
+        mean_cdf = stats.ecdf(mean_data).cdf
+        this_cdf = {}
+        this_cdf["max"] = max_cdf
+        this_cdf["min"] = min_cdf
+        this_cdf["nom"] = mean_cdf
+        sim_cdfs_lims[kk] = this_cdf
 
 
     plot_all_sim_cdfs = False
     if plot_all_sim_cdfs:
-        for ii,kk in enumerate(sim_cdfs):
+        for ii,kk in enumerate(sim_cdfs_all):
             fig, axs=plt.subplots(1,1,
                                 figsize=plot_opts.single_fig_size_landscape,
                                 layout="constrained")
             fig.set_dpi(plot_opts.resolution)
 
-            for cc in sim_cdfs[kk]:
+            for cc in sim_cdfs_all[kk]:
                 axs.ecdf(cc.quantiles,color='xkcd:azure')
 
-            axs.ecdf(sim_min_cdf[kk].quantiles,color="black")
-            axs.ecdf(sim_max_cdf[kk].quantiles,color="black")
+            axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,ls="--",color="black",)
+            axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,ls="--",color="black")
+            axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,ls="-",color="black")
 
             axs.set_title(kk,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
@@ -154,78 +179,59 @@ def main() -> None:
             save_fig_path = save_path / f"sim_allcdfs_{kk}.png"
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
+    #---------------------------------------------------------------------------
+    # Experiment: Calculate min/max cdf based on epistemic error
 
-    # for kk in exp_data:
-    #     print(f"{kk=}")
-    #     print(f"{exp_data[kk].shape=}")
-    #     check_nan = np.any(np.isnan(exp_data[kk]))
-    #     print(f"{check_nan=}")
-
+    exp_data_lims = {}
+    for ii,kk in enumerate(exp_data):
+        this_exp = {}
+        this_exp["nom"] = exp_data[kk]
+        this_exp["min"] = exp_data[kk] - exp_epis_err[ii]
+        this_exp["max"] = exp_data[kk] + exp_epis_err[ii]
+        exp_data_lims[kk] = this_exp
 
 
     #---------------------------------------------------------------------------
     # Calculate MAVM
-    mavm_epis_max = {}
-    mavm_epis_min = {}
+    mavm = {}
+    mavm_keys = ("min","max")
 
     print(80*"-")
-    print("Calculating MAVM for max sim epistemic error...")
-    for ii,kk in enumerate(exp_data):
+    print("Calculating MAVM...")
+    for ii,kk in enumerate(exp_data_lims): # Loop over sensors: TCs + CV
+        this_mavm = {}
+        for es in mavm_keys: # Loop over EXP stats: min,max
+            for ss in mavm_keys: # Loop over SIM stats: min,max
 
-        if np.any(np.isnan(exp_data[kk])):
-            continue
+                # Some TCs missing from exp data, skip them
+                if not np.any(np.isnan(exp_data_lims[kk][es])):
 
-        print(80*"-")
-        print(f"{exp_data[kk].shape=}")
-        print(f"{sim_max_data[kk].shape=}")
-        print()
-        print(f"{np.mean(exp_data[kk])=}")
-        print(f"{np.mean(sim_max_data[kk])=}")
-        print()
+                    print(80*"-")
+                    print(f"sens-{kk}_sim-{ss}_exp-{es}")
+                    print(f"{exp_data_lims[kk][es].shape=}")
+                    print(f"{sim_data_lims[kk][ss].shape=}")
+                    print()
+                    print(f"{np.mean(exp_data_lims[kk][es])=}")
+                    print(f"{np.mean(sim_data_lims[kk][ss])=}")
+                    print()
 
-        mavm_epis_max[kk] = vm.mavm(sim_max_data[kk],exp_data[kk])
+                    stat_key = f"sim-{ss}_exp-{es}"
 
-        print(f"{mavm_epis_max[kk]['d+']=}")
-        print(f"{mavm_epis_max[kk]['d-']=}")
-        print(80*"-")
+                    this_mavm[stat_key] = vm.mavm(sim_data_lims[kk][ss],
+                                                  exp_data_lims[kk][es])
 
-        vm.mavm_figs(mavm_epis_max[kk],
-                     title_str=kk,
-                     field_label=sens_ax_labels[ii],
-                     field_tag=sens_tags[ii],
-                     save_tag="maxepis",
-                     save_path=save_path)
+                    print(f"{this_mavm[stat_key]['d+']=}")
+                    print(f"{this_mavm[stat_key]['d-']=}")
+                    print(80*"-")
 
-    print(80*"-")
-    print("Calculating MAVM for min sim epistemic error...")
-    for ii,kk in enumerate(exp_data):
+                    vm.mavm_figs(this_mavm[stat_key],
+                                title_str=kk,
+                                field_label=sens_ax_labels[ii],
+                                field_tag=sens_tags[ii],
+                                save_tag=stat_key,
+                                save_path=save_path)
 
-        if np.any(np.isnan(exp_data[kk])):
-            continue
-
-        print(80*"-")
-        print(f"{exp_data[kk].shape=}")
-        print(f"{sim_min_data[kk].shape=}")
-        print()
-        print(f"{np.mean(exp_data[kk])=}")
-        print(f"{np.mean(sim_min_data[kk])=}")
-        print()
-
-        mavm_epis_min[kk] = vm.mavm(sim_min_data[kk],exp_data[kk])
-
-        print(f"{mavm_epis_min[kk]['d+']=}")
-        print(f"{mavm_epis_min[kk]['d-']=}")
-        print(80*"-")
-
-        vm.mavm_figs(mavm_epis_min[kk],
-                     title_str=kk,
-                     field_label=sens_ax_labels[ii],
-                     field_tag=sens_tags[ii],
-                     save_tag="minepis",
-                     save_path=save_path)
-
-
-
+    mavm[kk] = this_mavm
 
 
 if __name__ == "__main__":
