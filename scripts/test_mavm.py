@@ -166,63 +166,31 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # Calculate MAVM
     mavm_epis_max = {}
-    mavm_epis_min = {}
+
+    kk = "CV"
+
 
     print(80*"-")
-    print("Calculating MAVM for max sim epistemic error...")
-    for ii,kk in enumerate(exp_data):
+    print(f"{exp_data[kk].shape=}")
+    print(f"{sim_max_data[kk].shape=}")
+    print()
+    print(f"{np.mean(exp_data[kk])=}")
+    print(f"{np.mean(sim_max_data[kk])=}")
+    print()
 
-        if np.any(np.isnan(exp_data[kk])):
-            continue
+    mavm_epis_max[kk] = vm.mavm(sim_max_data[kk],exp_data[kk],test="coilv")
 
-        print(80*"-")
-        print(f"{exp_data[kk].shape=}")
-        print(f"{sim_max_data[kk].shape=}")
-        print()
-        print(f"{np.mean(exp_data[kk])=}")
-        print(f"{np.mean(sim_max_data[kk])=}")
-        print()
-
-        mavm_epis_max[kk] = vm.mavm(sim_max_data[kk],exp_data[kk])
-
-        print(f"{mavm_epis_max[kk]['d+']=}")
-        print(f"{mavm_epis_max[kk]['d-']=}")
-        print(80*"-")
-
-        vm.mavm_figs(mavm_epis_max[kk],
-                     title_str=kk,
-                     field_label=sens_ax_labels[ii],
-                     field_tag=sens_tags[ii],
-                     save_tag="maxepis",
-                     save_path=save_path)
-
+    print(f"{mavm_epis_max[kk]['d+']=}")
+    print(f"{mavm_epis_max[kk]['d-']=}")
     print(80*"-")
-    print("Calculating MAVM for min sim epistemic error...")
-    for ii,kk in enumerate(exp_data):
 
-        if np.any(np.isnan(exp_data[kk])):
-            continue
+    vm.mavm_figs(mavm_epis_max[kk],
+                    title_str=kk,
+                    field_label=sens_ax_labels[ii],
+                    field_tag=sens_tags[ii],
+                    save_tag="maxepis",
+                    save_path=save_path)
 
-        print(80*"-")
-        print(f"{exp_data[kk].shape=}")
-        print(f"{sim_min_data[kk].shape=}")
-        print()
-        print(f"{np.mean(exp_data[kk])=}")
-        print(f"{np.mean(sim_min_data[kk])=}")
-        print()
-
-        mavm_epis_min[kk] = vm.mavm(sim_min_data[kk],exp_data[kk])
-
-        print(f"{mavm_epis_min[kk]['d+']=}")
-        print(f"{mavm_epis_min[kk]['d-']=}")
-        print(80*"-")
-
-        vm.mavm_figs(mavm_epis_min[kk],
-                     title_str=kk,
-                     field_label=sens_ax_labels[ii],
-                     field_tag=sens_tags[ii],
-                     save_tag="minepis",
-                     save_path=save_path)
 
 
 

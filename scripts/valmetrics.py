@@ -683,23 +683,27 @@ def mavm(model_data: np.ndarray,
 
                     ii += 1
 
-                d_rem = (Sn_exp_vec[ii]-F_mod_vec[jj])*(p_F_mod_scalar*(jj+1) - p_Sn_exp_scalar*ii)
+                #TODO: bug here for coil data, this is a rough fix. Remove this
+                # if statement to replicate the bug
+                if ii < len(Sn_exp_vec) and jj < len(F_mod_vec):
 
-                if d_rem > 0.0:
-                    d_plus += d_rem
-                else:
-                    d_minus += d_rem
+                    d_rem = (Sn_exp_vec[ii]-F_mod_vec[jj])*(p_F_mod_scalar*(jj+1) - p_Sn_exp_scalar*ii)
 
-                if test is not None:
-                    print("FINAL BLOCK:")
-                    print(f"{Sn_exp_vec[ii]=}")
-                    print(f"{F_mod_vec[jj]=}")
-                    print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
-                    print()
+                    if d_rem > 0.0:
+                        d_plus += d_rem
+                    else:
+                        d_minus += d_rem
 
-                    print(f"{d_plus=}")
-                    print(f"{d_minus=}")
-                    print(f"{d_rem=}")
+                    if test is not None:
+                        print("FINAL BLOCK:")
+                        print(f"{Sn_exp_vec[ii]=}")
+                        print(f"{F_mod_vec[jj]=}")
+                        print(f"{(Sn_exp_vec[ii] - F_mod_vec[jj])=}")
+                        print()
+
+                        print(f"{d_plus=}")
+                        print(f"{d_minus=}")
+                        print(f"{d_rem=}")
 
             if test is not None:
                 print()
@@ -828,7 +832,12 @@ def mavm_figs(mavm_res: dict[str,Any],
               title_str: str,
               field_label: str,
               field_tag: str = "",
-              save_tag: str = "") -> None:
+              save_tag: str = "",
+              save_path: Path | None = None) -> None:
+
+    if save_path is None:
+        save_path = Path.cwd() / "images"
+
 
     model_cdf = mavm_res["model_cdf"]
     exp_cdf = mavm_res["exp_cdf"]
@@ -862,11 +871,11 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.set_xlabel(field_label,fontsize=plot_opts.font_ax_size)
     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
     if save_tag:
-        save_path = Path("images") / f"mavm_ci_{field_tag}_{title_str}_{save_tag}.png"
+        save_fig_path = save_path / f"mavm_ci_{field_tag}_{title_str}_{save_tag}.png"
     else:
-        save_path = Path("images") / f"mavm_ci_{field_tag}_{title_str}.png"
+        save_fig_path = save_path / f"mavm_ci_{field_tag}_{title_str}.png"
 
-    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
+    fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     fig,axs=plt.subplots(1,1,
                          figsize=plot_opts.single_fig_size_landscape,
@@ -889,11 +898,11 @@ def mavm_figs(mavm_res: dict[str,Any],
     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
     if save_tag:
-        save_path = Path("images") / f"mavm_fill_{field_tag}_{title_str}_{save_tag}.png"
+        save_fig_path = save_path / f"mavm_fill_{field_tag}_{title_str}_{save_tag}.png"
     else:
-        save_path = Path("images") / f"mavm_fill_{field_tag}_{title_str}.png"
+        save_fig_path = save_path / f"mavm_fill_{field_tag}_{title_str}.png"
 
-    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
+    fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
 def plot_mavm_map(mavm_d_plus: np.ndarray,
