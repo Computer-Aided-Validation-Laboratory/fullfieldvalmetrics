@@ -107,7 +107,6 @@ def main() -> None:
     sim_data_lims = {}
     sim_cdfs_lims ={}
 
-
     for kk in sim_data:
         cdfs = []
 
@@ -157,8 +156,9 @@ def main() -> None:
         sim_cdfs_lims[kk] = this_cdf
 
 
-    plot_all_sim_cdfs = False
-    if plot_all_sim_cdfs:
+    PLOT_ALL_SIM_CDFS = False
+
+    if PLOT_ALL_SIM_CDFS:
         for ii,kk in enumerate(sim_cdfs_all):
             fig, axs=plt.subplots(1,1,
                                 figsize=plot_opts.single_fig_size_landscape,
@@ -183,6 +183,7 @@ def main() -> None:
     # Experiment: Calculate min/max cdf based on epistemic error
 
     exp_data_lims = {}
+    exp_cdfs_lims = {}
     for ii,kk in enumerate(exp_data):
         this_exp = {}
         this_exp["nom"] = exp_data[kk]
@@ -190,9 +191,22 @@ def main() -> None:
         this_exp["max"] = exp_data[kk] + exp_epis_err[ii]
         exp_data_lims[kk] = this_exp
 
+        this_cdf = {}
+        if np.any(np.isnan(exp_data_lims[kk]["nom"])):
+            this_cdf["nom"] = None
+            this_cdf["min"] = None
+            this_cdf["max"] = None
+
+        else:
+            this_cdf["nom"] = stats.ecdf(exp_data[kk]).cdf
+            this_cdf["min"] = stats.ecdf(exp_data[kk] - exp_epis_err[ii]).cdf
+            this_cdf["max"] = stats.ecdf(exp_data[kk] + exp_epis_err[ii]).cdf
+        exp_cdfs_lims[kk] = this_cdf
 
     #---------------------------------------------------------------------------
     # Calculate MAVM
+    PLOT_MAVM_INDIVIDUAL = False
+
     mavm = {}
     mavm_keys = ("min","max")
 
@@ -224,14 +238,71 @@ def main() -> None:
                     print(f"{this_mavm[stat_key]['d-']=}")
                     print(80*"-")
 
-                    vm.mavm_figs(this_mavm[stat_key],
-                                title_str=kk,
-                                field_label=sens_ax_labels[ii],
-                                field_tag=sens_tags[ii],
-                                save_tag=stat_key,
-                                save_path=save_path)
+                    if PLOT_MAVM_INDIVIDUAL:
+                        vm.mavm_figs(this_mavm[stat_key],
+                                    title_str=kk,
+                                    field_label=sens_ax_labels[ii],
+                                    field_tag=sens_tags[ii],
+                                    save_tag=stat_key,
+                                    save_path=save_path)
 
     mavm[kk] = this_mavm
+
+    #---------------------------------------------------------------------------
+    # MAVM: Combined figures with all errors
+
+
+    print(80*"-")
+    print("Plotting combined MAVM figures...")
+    for ii,kk in enumerate(exp_data_lims): # Loop over sensors: TCs + CV
+
+        if np.any(np.isnan(exp_data_lims[kk]["nom"])):
+            continue
+
+        fig,axs=plt.subplots(1,1,
+                         figsize=plot_opts.single_fig_size_landscape,
+                         layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        exp_c = "r"
+        sim_c = "b"
+
+        axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,
+                 ls="-",color=sim_c,label="sim. nom.")
+        axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
+                 ls="--",color=sim_c,label="sim. lims.")
+        axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
+                 ls="--",color=sim_c)
+
+        axs.ecdf(exp_cdfs_lims[kk]["nom"].quantiles,
+                 ls="-",color=exp_c,label="exp. nom.")
+        axs.ecdf(exp_cdfs_lims[kk]["max"].quantiles,
+                 ls="--",color=exp_c,label="exp. lims.")
+        axs.ecdf(exp_cdfs_lims[kk]["min"].quantiles,
+                 ls="--",color=exp_c)
+
+        axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
+                         sim_cdfs_lims[kk]["min"].quantiles,
+                         sim_cdfs_lims[kk]["max"].quantiles,
+                         color=sim_c,
+                         alpha=0.2)
+
+        axs.fill_betweenx(exp_cdfs_lims[kk]["nom"].probabilities,
+                         exp_cdfs_lims[kk]["min"].quantiles,
+                         exp_cdfs_lims[kk]["max"].quantiles,
+                         color=exp_c,
+                         alpha=0.2)
+
+        axs.legend(loc="upper left")
+        axs.set_title(kk,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+    plt.show()
+
+    print(80*"-")
+    print("MAVM calculation complete.")
+    print(80*"-")
 
 
 if __name__ == "__main__":
