@@ -166,11 +166,14 @@ def main() -> None:
             fig.set_dpi(plot_opts.resolution)
 
             for cc in sim_cdfs_all[kk]:
-                axs.ecdf(cc.quantiles,color='xkcd:azure')
+                axs.ecdf(cc.quantiles,color='tab:blue',linewidth=plot_opts.lw)
 
-            axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,ls="--",color="black",)
-            axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,ls="--",color="black")
-            axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,ls="-",color="black")
+            axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles
+                     ,ls="--",color="black",linewidth=plot_opts.lw)
+            axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles
+                     ,ls="--",color="black",linewidth=plot_opts.lw)
+            axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles
+                     ,ls="-",color="black",linewidth=plot_opts.lw)
 
             axs.set_title(kk,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
@@ -264,22 +267,22 @@ def main() -> None:
                          layout="constrained")
         fig.set_dpi(plot_opts.resolution)
 
-        exp_c = "r"
-        sim_c = "b"
+        exp_c = "tab:orange"
+        sim_c = "tab:blue"
 
         axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,
-                 ls="-",color=sim_c,label="sim. nom.")
+                 ls="-",color=sim_c,label="sim. nom.",linewidth=plot_opts.lw)
         axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
-                 ls="--",color=sim_c,label="sim. lims.")
+                 ls="--",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
         axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
-                 ls="--",color=sim_c)
+                 ls="--",color=sim_c,linewidth=plot_opts.lw)
 
         axs.ecdf(exp_cdfs_lims[kk]["nom"].quantiles,
-                 ls="-",color=exp_c,label="exp. nom.")
+                 ls="-",color=exp_c,label="exp. nom.",linewidth=plot_opts.lw)
         axs.ecdf(exp_cdfs_lims[kk]["max"].quantiles,
-                 ls="--",color=exp_c,label="exp. lims.")
+                 ls="--",color=exp_c,label="exp. lims.",linewidth=plot_opts.lw)
         axs.ecdf(exp_cdfs_lims[kk]["min"].quantiles,
-                 ls="--",color=exp_c)
+                 ls="--",color=exp_c,linewidth=plot_opts.lw)
 
         axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
                          sim_cdfs_lims[kk]["min"].quantiles,
@@ -293,12 +296,16 @@ def main() -> None:
                          color=exp_c,
                          alpha=0.2)
 
-        axs.legend(loc="upper left")
+        axs.legend(loc="upper left",fontsize=6)
         axs.set_title(kk,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-    plt.show()
+        save_fig_path = save_path / f"cdfs_{kk}.png"
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
+    #plt.show()
 
     print(80*"-")
     print("MAVM calculation complete.")

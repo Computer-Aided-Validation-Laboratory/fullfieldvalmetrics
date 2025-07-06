@@ -861,10 +861,10 @@ def mavm_figs(mavm_res: dict[str,Any],
                          layout="constrained")
     fig.set_dpi(plot_opts.resolution)
 
-    axs.ecdf(model_cdf.quantiles,label="sim.")
-    axs.ecdf(exp_cdf.quantiles,label="exp.")
-    axs.ecdf(Sn_conf[0],ls="dashed",color="k",label=r"95% C.I.")
-    axs.ecdf(Sn_conf[1],ls="dashed",color="k")
+    axs.ecdf(model_cdf.quantiles,label="sim.",linewidth=plot_opts.lw)
+    axs.ecdf(exp_cdf.quantiles,label="exp.",linewidth=plot_opts.lw)
+    axs.ecdf(Sn_conf[0],ls="dashed",color="k",linewidth=plot_opts.lw,label=r"95% C.I.")
+    axs.ecdf(Sn_conf[1],ls="dashed",color="k",linewidth=plot_opts.lw)
     axs.legend()
 
     axs.set_title(title_str,fontsize=plot_opts.font_head_size)
@@ -882,9 +882,9 @@ def mavm_figs(mavm_res: dict[str,Any],
                          layout="constrained")
     fig.set_dpi(plot_opts.resolution)
 
-    axs.plot(F_,F_Y,"k-")
-    axs.plot(F_+d_plus,F_Y,"k--")
-    axs.plot(F_-d_minus,F_Y,"k--")
+    axs.plot(F_,F_Y,"k-",linewidth=plot_opts.lw)
+    axs.plot(F_+d_plus,F_Y,"k--",linewidth=plot_opts.lw)
+    axs.plot(F_-d_minus,F_Y,"k--",linewidth=plot_opts.lw)
     axs.fill_betweenx(F_Y,F_-d_minus,F_+d_plus,color="k",alpha=0.2)
 
     # axs.plot(F_,F_Y,"k-")
