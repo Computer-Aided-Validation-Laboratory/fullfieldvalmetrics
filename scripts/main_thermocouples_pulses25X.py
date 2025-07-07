@@ -16,6 +16,7 @@ def main() -> None:
 
     sens_ax_labels = (r"Temp. [$^{\circ}C$]",)*10 + (r"Coil RMS Voltage [$V$]",)
     sens_tags = ("Temp",)*10 + ("Volts",)
+    sens_num = len(sens_tags)
 
     save_path = Path.cwd() / "images_pulse25X"
     if not save_path.is_dir():
@@ -211,12 +212,18 @@ def main() -> None:
     PLOT_MAVM_INDIVIDUAL = False
 
     mavm = {}
+    dplus_max = {}
+    dminus_max = {}
     mavm_keys = ("min","max")
 
     print(80*"-")
     print("Calculating MAVM...")
     for ii,kk in enumerate(exp_data_lims): # Loop over sensors: TCs + CV
+
+        dplus_max_val = 0
+        dminus_max_val = 0
         this_mavm = {}
+
         for es in mavm_keys: # Loop over EXP stats: min,max
             for ss in mavm_keys: # Loop over SIM stats: min,max
 
@@ -224,6 +231,7 @@ def main() -> None:
                 if not np.any(np.isnan(exp_data_lims[kk][es])):
 
                     print(80*"-")
+                    print(f"{kk=}")
                     print(f"sens-{kk}_sim-{ss}_exp-{es}")
                     print(f"{exp_data_lims[kk][es].shape=}")
                     print(f"{sim_data_lims[kk][ss].shape=}")
@@ -241,6 +249,16 @@ def main() -> None:
                     print(f"{this_mavm[stat_key]['d-']=}")
                     print(80*"-")
 
+                    if this_mavm[stat_key]["d+"] > dplus_max_val:
+                        dplus_max_val = this_mavm[stat_key]["d+"]
+                        dplus_max[kk] = this_mavm[stat_key]
+                        dplus_max[kk]["stat_key"] = stat_key
+
+                    if this_mavm[stat_key]["d-"] > dminus_max_val:
+                        dminus_max_val = this_mavm[stat_key]["d-"]
+                        dminus_max[kk] = this_mavm[stat_key]
+                        dminus_max[kk]["stat_key"] = stat_key
+
                     if PLOT_MAVM_INDIVIDUAL:
                         vm.mavm_figs(this_mavm[stat_key],
                                     title_str=kk,
@@ -249,19 +267,79 @@ def main() -> None:
                                     save_tag=stat_key,
                                     save_path=save_path)
 
-    mavm[kk] = this_mavm
+        if not np.any(np.isnan(exp_data_lims[kk][es])):
+            mavm[kk] = this_mavm
+
+            print(80*"-")
+            print(f"{kk=}")
+            print(f"{dminus_max_val=}")
+            print(f"{dplus_max_val=}")
+            print()
+            print(f"{dplus_max[kk]['stat_key']=}")
+            print(f"{dminus_max[kk]['stat_key']=}")
+            print(80*"-")
 
     #---------------------------------------------------------------------------
     # MAVM: Combined figures with all errors
 
 
-    print(80*"-")
-    print("Plotting combined MAVM figures...")
+    # print(80*"-")
+    # print("Plotting combined MAVM figures...")
+    # for ii,kk in enumerate(exp_data_lims): # Loop over sensors: TCs + CV
+
+    #     if np.any(np.isnan(exp_data_lims[kk]["nom"])):
+    #         continue
+
+    #     #-----------------------------------------------------------------------
+    #     fig,axs=plt.subplots(1,1,
+    #                      figsize=plot_opts.single_fig_size_landscape,
+    #                      layout="constrained")
+    #     fig.set_dpi(plot_opts.resolution)
+
+    #     exp_c = "tab:orange"
+    #     sim_c = "tab:blue"
+
+    #     axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,
+    #              ls="-",color=sim_c,label="sim. nom.",linewidth=plot_opts.lw)
+    #     axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
+    #              ls="--",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
+    #     axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
+    #              ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+    #     axs.ecdf(exp_cdfs_lims[kk]["nom"].quantiles,
+    #              ls="-",color=exp_c,label="exp. nom.",linewidth=plot_opts.lw)
+    #     axs.ecdf(exp_cdfs_lims[kk]["max"].quantiles,
+    #              ls="--",color=exp_c,label="exp. lims.",linewidth=plot_opts.lw)
+    #     axs.ecdf(exp_cdfs_lims[kk]["min"].quantiles,
+    #              ls="--",color=exp_c,linewidth=plot_opts.lw)
+
+    #     axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
+    #                      sim_cdfs_lims[kk]["min"].quantiles,
+    #                      sim_cdfs_lims[kk]["max"].quantiles,
+    #                      color=sim_c,
+    #                      alpha=0.2)
+
+    #     axs.fill_betweenx(exp_cdfs_lims[kk]["nom"].probabilities,
+    #                      exp_cdfs_lims[kk]["min"].quantiles,
+    #                      exp_cdfs_lims[kk]["max"].quantiles,
+    #                      color=exp_c,
+    #                      alpha=0.2)
+
+    #     axs.legend(loc="upper left",fontsize=6)
+    #     axs.set_title(kk,fontsize=plot_opts.font_head_size)
+    #     axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
+    #     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+    #     save_fig_path = save_path / f"cdfs_{kk}.png"
+    #     fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
     for ii,kk in enumerate(exp_data_lims): # Loop over sensors: TCs + CV
 
         if np.any(np.isnan(exp_data_lims[kk]["nom"])):
             continue
 
+        #-----------------------------------------------------------------------
         fig,axs=plt.subplots(1,1,
                          figsize=plot_opts.single_fig_size_landscape,
                          layout="constrained")
@@ -273,36 +351,95 @@ def main() -> None:
         axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,
                  ls="-",color=sim_c,label="sim. nom.",linewidth=plot_opts.lw)
         axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
-                 ls="--",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
+                 ls=":",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
         axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
-                 ls="--",color=sim_c,linewidth=plot_opts.lw)
+                 ls=":",color=sim_c,linewidth=plot_opts.lw)
 
         axs.ecdf(exp_cdfs_lims[kk]["nom"].quantiles,
                  ls="-",color=exp_c,label="exp. nom.",linewidth=plot_opts.lw)
         axs.ecdf(exp_cdfs_lims[kk]["max"].quantiles,
-                 ls="--",color=exp_c,label="exp. lims.",linewidth=plot_opts.lw)
+                 ls=":",color=exp_c,label="exp. lims.",linewidth=plot_opts.lw)
         axs.ecdf(exp_cdfs_lims[kk]["min"].quantiles,
-                 ls="--",color=exp_c,linewidth=plot_opts.lw)
+                 ls=":",color=exp_c,linewidth=plot_opts.lw)
 
         axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
                          sim_cdfs_lims[kk]["min"].quantiles,
                          sim_cdfs_lims[kk]["max"].quantiles,
                          color=sim_c,
-                         alpha=0.2)
+                         alpha=0.2,
+                         ls=":")
 
         axs.fill_betweenx(exp_cdfs_lims[kk]["nom"].probabilities,
                          exp_cdfs_lims[kk]["min"].quantiles,
                          exp_cdfs_lims[kk]["max"].quantiles,
                          color=exp_c,
-                         alpha=0.2)
+                         alpha=0.2,
+                         ls=":")
+
+        dp_c = "tab:green"
+        axs.plot(dplus_max[kk]["F_"] + dplus_max[kk]["d+"],
+                 dplus_max[kk]["F_Y"],
+                 ls="--",linewidth=plot_opts.lw*1.2, label="d+ max.",
+                 color=dp_c)
+        axs.plot(dplus_max[kk]["F_"] - dplus_max[kk]["d-"],
+                 dplus_max[kk]["F_Y"],
+                 ls="--",linewidth=plot_opts.lw*1.2,
+                 color=dp_c)
+
+        dm_c = "tab:red"
+        axs.plot(dminus_max[kk]["F_"] + dminus_max[kk]["d+"],
+                 dminus_max[kk]["F_Y"],
+                 ls="--",linewidth=plot_opts.lw*1.2, label="d- max.",
+                 color=dm_c)
+        axs.plot(dminus_max[kk]["F_"] - dminus_max[kk]["d-"],
+                 dminus_max[kk]["F_Y"],
+                 ls="--",linewidth=plot_opts.lw*1.2,
+                 color=dm_c)
+
+        print(80*"-")
+        print(f"{kk=}")
+        print(f"{dplus_max[kk]['d+']=}")
+        print(f"{dminus_max[kk]['d-']=}")
+        print(80*"-")
 
         axs.legend(loc="upper left",fontsize=6)
         axs.set_title(kk,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-        save_fig_path = save_path / f"cdfs_{kk}.png"
+        save_fig_path = save_path / f"dbounds_wcdfs_{kk}.png"
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+    print(80*"-")
+    print("Saving MAVM results to csv.")
+
+    n_res = len(mavm)
+    d_res = np.zeros((n_res,2*4))
+    d_rows = []
+    d_cols = []
+
+    print(f"{n_res=}")
+
+    for ii,mm in enumerate(mavm): # Loop over sensors: TCs + CV
+        d_rows.append(mm)
+
+        for jj,es in enumerate(mavm[mm]):
+            print(80*"-")
+            print(f"{ii=}")
+            print(f"{mm=}")
+            print(f"{jj=}")
+            print(f"{es=}")
+            print(80*"-")
+
+            # if len(d_cols) != 8:
+            #     d_cols.append(f"{es}-d+")
+            #     d_cols.append(f"{es}-d-")
+
+            # d_res[ii,2*jj] = mavm[mm][es]["d+"]
+            # d_res[ii,2*jj+1] = mavm[mm][es]["d-"]
+
+    #print(d_res)
+
 
 
     #plt.show()
