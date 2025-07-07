@@ -19,11 +19,15 @@ def main() -> None:
         temp_path.mkdir()
 
     FE_DIR = Path.cwd()/ "STC_ProbSim_Reduced"
+
     DIC_DIRS = (
         Path.cwd() / "STC_Exp_Pulse253",
         Path.cwd() / "STC_Exp_Pulse254",
         Path.cwd() / "STC_Exp_Pulse255",
     )
+    DIC_STEADY = {"253": (261,694),
+                  "254": (252,694),
+                  "255": (211,694)}
 
     if not FE_DIR.is_dir():
         raise FileNotFoundError(f"{FE_DIR}: directory does not exist.")
@@ -65,7 +69,6 @@ def main() -> None:
     for ss in sim_fields:
         print(f"sim_field[{ss}].shape={sim_fields[ss].shape}")
     print()
-
 
 
     #---------------------------------------------------------------------------
