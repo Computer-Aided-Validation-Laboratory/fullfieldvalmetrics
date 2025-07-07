@@ -445,11 +445,11 @@ def main() -> None:
         dp_c = "black"
         axs.plot(dplus_max[kk]["F_"] + dplus_max[kk]["d+"],
                  dplus_max[kk]["F_Y"],
-                 ls="--",linewidth=plot_opts.lw*1.2, label="d+",
+                 ls=":",linewidth=plot_opts.lw*1.2, label="d+",
                  color=dp_c)
         axs.plot(dplus_max[kk]["F_"] - dplus_max[kk]["d-"],
                  dplus_max[kk]["F_Y"],
-                 ls=":",linewidth=plot_opts.lw*1.2, label="d-",
+                 ls="--",linewidth=plot_opts.lw*1.2, label="d-",
                  color=dp_c)
 
 
@@ -486,11 +486,11 @@ def main() -> None:
         dm_c = "black"
         axs.plot(dminus_max[kk]["F_"] + dminus_max[kk]["d+"],
                  dminus_max[kk]["F_Y"],
-                 ls="--",linewidth=plot_opts.lw*1.2, label="d+",
+                 ls=":",linewidth=plot_opts.lw*1.2, label="d+",
                  color=dm_c)
         axs.plot(dminus_max[kk]["F_"] - dminus_max[kk]["d-"],
                  dminus_max[kk]["F_Y"],
-                 ls=":",linewidth=plot_opts.lw*1.2, label="d-",
+                 ls="--",linewidth=plot_opts.lw*1.2, label="d-",
                  color=dm_c)
 
 
@@ -507,19 +507,62 @@ def main() -> None:
 
         #-----------------------------------------------------------------------
         # FIG 3: d outer limits
-        # fig,axs=plt.subplots(1,1,
-        #                  figsize=plot_opts.single_fig_size_landscape,
-        #                  layout="constrained")
-        # fig.set_dpi(plot_opts.resolution)
+        fig,axs=plt.subplots(1,1,
+                         figsize=plot_opts.single_fig_size_landscape,
+                         layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        if ((np.mean(dplus_max[kk]["F_"]) + dplus_max[kk]["d+"])
+            > (np.mean(dminus_max[kk]["F_"]) + dminus_max[kk]["d+"])):
+            dplus_plot = dplus_max[kk]
+        else:
+            dplus_plot = dminus_max[kk]
+
+        if ((np.mean(dplus_max[kk]["F_"]) - dplus_max[kk]["d-"])
+             < (np.mean(dminus_max[kk]["F_"]) - dminus_max[kk]["d-"])):
+            dminus_plot = dplus_max[kk]
+        else:
+            dminus_plot = dminus_max[kk]
+
+        axs.fill_betweenx(dplus_plot["F_Y"],
+                         dminus_plot["F_"] - dminus_plot["d-"],
+                         dplus_plot["F_"] + dplus_plot["d+"],
+                         color="black",
+                         alpha=0.2,
+                         ls=":")
 
 
-        # axs.legend(loc="upper left",fontsize=6)
-        # axs.set_title(kk,fontsize=plot_opts.font_head_size)
-        # axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
-        # axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+        axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
+                 ls="-",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
+        axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
+                 ls="-",color=sim_c,linewidth=plot_opts.lw)
 
-        # save_fig_path = save_path / f"{fig_ind+2}_dextremes_wcdfs_{kk}.png"
-        # fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+        axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
+                         sim_cdfs_lims[kk]["min"].quantiles,
+                         sim_cdfs_lims[kk]["max"].quantiles,
+                         color=sim_c,
+                         alpha=0.2,
+                         ls=":")
+
+        dm_c = "black"
+        axs.plot(dplus_plot["F_"] + dplus_plot["d+"],
+                 dplus_plot["F_Y"],
+                 ls=":",linewidth=plot_opts.lw*1.2, label="d+",
+                 color=dm_c)
+        axs.plot(dminus_plot["F_"] - dminus_plot["d-"],
+                 dminus_plot["F_Y"],
+                 ls="--",linewidth=plot_opts.lw*1.2, label="d-",
+                 color=dm_c)
+
+
+        title_str = f"{kk}, MAVM limits"
+        axs.legend(loc="upper left",fontsize=6)
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+        save_fig_path = save_path / f"{fig_ind+2}_dextremes_wcdfs_{kk}.png"
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
     plt.show()
