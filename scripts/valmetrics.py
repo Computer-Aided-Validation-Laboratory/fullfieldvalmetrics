@@ -58,17 +58,29 @@ def load_exp_data(data_path: Path,
 
     # Using the first csv we initialise all our numpy arrays to the correct
     # shape to hold our data as shape=(num_frames,num_points,slice.len)
-    exp_data: dict[str,np.ndarray] = {}
+    field_data: dict[str,np.ndarray] = {}
     for ff in field_slices:
         # shape=(num_points,slice.len)
-        field_data = data[:,field_slices[ff]]
-        # shape=(num_frames,num_points,slice.len)
-        exp_data[ff] = np.zeros((data.shape[0],
+        field_temp = data[:,field_slices[ff]]
+        # shape=(num_points,num_frames,slice.len)
+        field_data[ff] = np.zeros((data.shape[0],
                                 len(csv_files),
-                                field_data.shape[1]))
-        exp_data[ff][:,0,:] = field_data
+                                field_temp.shape[1]))
+        field_data[ff][:,0,:] = field_temp
 
         #print(f"key={ff} , {field_data.shape=}")
+
+    # if coord_slices is not None:
+    #     coord_data: dict[str,np.ndarray] = {}
+    #     for cc in coord_slices:
+    #         # shape=(num_points,slice.len)
+    #         coord_temp = data[:,field_slices[cc]]
+    #         # shape=(num_points,num_frames,slice.len)
+    #         coord_data[cc] = np.zeros((data.shape[0],
+    #                             len(csv_files),
+    #                             coord_temp.shape[1]))
+    #         coord_data[cc][:,0,:] = coord_temp
+
 
     # We have loaded the first data frame so we can remove it now, then we will
     # loop over all the others and load them
@@ -92,7 +104,7 @@ def load_exp_data(data_path: Path,
                 frame_data = pp["process"].get()
 
                 for kk in field_slices:
-                    exp_data[kk][:,pp["frame"],:] = frame_data[kk]
+                    field_data[kk][:,pp["frame"],:] = frame_data[kk]
 
     else:
         for ii,ff in enumerate(csv_files):
@@ -104,12 +116,13 @@ def load_exp_data(data_path: Path,
 
             for kk in field_slices:
                 # shape=(num_frames,num_points,slice.len)
-                exp_data[kk][:,ii+1,:] = data[:,field_slices[kk]]
+                field_data[kk][:,ii+1,:] = data[:,field_slices[kk]]
 
-    return exp_data # dict[str,np.ndarray]
+    return field_data # dict[str,np.ndarray]
 
 def _load_one_exp(path: Path,
-                  field_slices: dict[str,slice]) -> dict[str,np.ndarray]:
+                  field_slices: dict[str,slice],
+                  ) -> tuple[dict[str,np.ndarray]]:
 
     data = pd.read_csv(path)
     data = data.to_numpy()
@@ -118,6 +131,13 @@ def _load_one_exp(path: Path,
     for ff in field_slices:
         # shape=(num_points,slice.len)
         exp_data[ff] = data[:,field_slices[ff]]
+
+    # if coord_slices is not None:
+    #     coord_data = {}
+    #     for cc in coord_slices:
+    #         coord_data[cc] = data[:]
+    # else:
+    #     coord_data = None
 
     return exp_data
 
@@ -200,7 +220,8 @@ def load_exp_data_tup(data_path: Path,
             processes = []
 
             for ff in csv_files:
-                processes.append(pool.apply_async(_load_one_exp, args=(ff,)))
+                processes.append(
+                    pool.apply_async(_load_one_exp_tup, args=(ff,)))
 
             data_list = [pp.get() for pp in processes]
 
@@ -243,7 +264,7 @@ def load_exp_data_tup(data_path: Path,
     # exp_strain.shape=(num_files,num_points,strain[xx,yy,xy])
     return (exp_coords,exp_disp,exp_strain)
 
-def _load_one_exp(path: Path) -> np.ndarray:
+def _load_one_exp_tup(path: Path) -> np.ndarray:
         data = np.genfromtxt(path,
                         dtype=np.float64,
                         delimiter=",",
@@ -254,10 +275,11 @@ def _load_one_exp(path: Path) -> np.ndarray:
         exp_data[:,6:9] = data[:,18:21]
         return exp_data
 
-def fit_coord_matrix(coords) -> np.ndarray:
+def fit_coord_matrix(coords: np.ndarray) -> np.ndarray:
     coord_mat = np.zeros((4,4))
     coord_mat[-1,-1] = 1
 
+    # TODO: this should be an option, max-min/2 or mean
     origin = np.mean(coords,axis=0)
     coord_mat[:-1,-1] = origin
 

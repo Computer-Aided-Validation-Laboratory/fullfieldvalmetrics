@@ -95,6 +95,7 @@ def main() -> None:
     print("Transforming simulation coords.")
     sim_coords = np.hstack((sim_coords,np.zeros((sim_coords.shape[0],1))))
 
+    # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
     sim_to_world_mat = vm.fit_coord_matrix(sim_coords)
     world_to_sim_mat = np.linalg.inv(sim_to_world_mat)
     print("Sim to world matrix:")
@@ -104,15 +105,17 @@ def main() -> None:
     print(world_to_sim_mat)
     print()
 
+    print("Adding w coord and rotating sim coords")
     sim_with_w = np.hstack([sim_coords,np.ones([sim_coords.shape[0],1])])
     print(f"{sim_with_w.shape=}")
 
-    print("Returning sim coords by removing w coord:")
     sim_coords = np.matmul(world_to_sim_mat,sim_with_w.T).T
     print(f"{sim_coords.shape=}")
+
+    print("Returning sim coords by removing w coord:")
     sim_coords = sim_coords[:,:-1]
     print(f"{sim_coords.shape=}")
-    print()
+
 
     sim_disp_t = np.zeros_like(sim_disp)
     for ss in range(0,sim_disp.shape[0]):
@@ -124,6 +127,9 @@ def main() -> None:
 
     sim_disp = sim_disp_t
     del sim_disp_t
+
+    print(f"{sim_disp.shape=}")
+    print()
 
 
     #---------------------------------------------------------------------------
@@ -160,34 +166,39 @@ def main() -> None:
     print(f"{exp_disp.shape=}")
     print()
 
-
+    return
     #---------------------------------------------------------------------------
     # Comparison of simulation and experimental coords
 
-    # down_samp = 5
-    # frame = 700
+    PLOT_COORD_COMP = True
 
-    # fig = plt.figure()
-    # ax = fig.add_subplot(projection="3d")
+    if PLOT_COORD_COMP:
+        down_samp = 5
+        frame = 700
 
-    # ax.scatter(exp_coords[frame,::down_samp,0],
-    #            exp_coords[frame,::down_samp,1],
-    #            exp_coords[frame,::down_samp,2])
-    # ax.scatter(sim_coords[:,0],
-    #            sim_coords[:,1],
-    #            sim_coords[:,2])
-    # ax.set_zlim(-1.0,1.0)
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('Y')
-    # ax.set_zlabel('Z')
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
 
-    # fig = plt.figure()
-    # ax = fig.add_subplot()
-    # ax.scatter(exp_coords[frame,::down_samp,0],exp_coords[frame,::down_samp,1])
-    # ax.scatter(sim_coords[:,0],sim_coords[:,1])
-    # ax.set_xlabel("X")
-    # ax.set_ylabel("Y")
-    # plt.show()
+        ax.scatter(exp_coords[frame,::down_samp,0],
+                    exp_coords[frame,::down_samp,1],
+                    exp_coords[frame,::down_samp,2])
+        ax.scatter(sim_coords[:,0],
+                    sim_coords[:,1],
+                    sim_coords[:,2])
+        #ax.set_zlim(-1.0,1.0)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        ax.scatter(exp_coords[frame,::down_samp,0],exp_coords[frame,::down_samp,1])
+        ax.scatter(sim_coords[:,0],sim_coords[:,1])
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        plt.show()
+
+    return
 
     #---------------------------------------------------------------------------
     # Plot displacement fields on transformed coords
