@@ -396,11 +396,11 @@ def main() -> None:
                  ls="--",linewidth=plot_opts.lw*1.2,
                  color=dm_c)
 
-        print(80*"-")
-        print(f"{kk=}")
-        print(f"{dplus_max[kk]['d+']=}")
-        print(f"{dminus_max[kk]['d-']=}")
-        print(80*"-")
+        # print(80*"-")
+        # print(f"{kk=}")
+        # print(f"{dplus_max[kk]['d+']=}")
+        # print(f"{dminus_max[kk]['d-']=}")
+        # print(80*"-")
 
         axs.legend(loc="upper left",fontsize=6)
         axs.set_title(kk,fontsize=plot_opts.font_head_size)
@@ -431,16 +431,20 @@ def main() -> None:
             print(f"{es=}")
             print(80*"-")
 
-            # if len(d_cols) != 8:
-            #     d_cols.append(f"{es}-d+")
-            #     d_cols.append(f"{es}-d-")
+            if len(d_cols) != 8:
+                d_cols.append(f"{es}-d+")
+                d_cols.append(f"{es}-d-")
 
-            # d_res[ii,2*jj] = mavm[mm][es]["d+"]
-            # d_res[ii,2*jj+1] = mavm[mm][es]["d-"]
+            d_res[ii,2*jj] = mavm[mm][es]["d+"]
+            d_res[ii,2*jj+1] = mavm[mm][es]["d-"]
 
-    #print(d_res)
+    data_frame = pd.DataFrame(d_res.T, columns=d_rows, index=d_cols)
+    print(80*"-")
+    print("MAVM Table")
+    print(data_frame)
 
-
+    save_mavm = save_path / "pointsensors_mavm.csv"
+    data_frame.to_csv(save_mavm, index=True, header=True)
 
     #plt.show()
 
