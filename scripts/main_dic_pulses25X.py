@@ -13,24 +13,28 @@ def main() -> None:
     print(80*"=")
     print()
 
-    conv_to_mm: float = 1.0 # Seems like sim is in mm
+    #===========================================================================
+    EXP_IND: int = 2
+    #===========================================================================
 
-    SIM_TAG = "25X"
+    conv_to_mm: float = 1000.0
+
+    SIM_TAG = "25Xred"
     temp_path = Path.cwd() / f"temp_{SIM_TAG}"
     if not temp_path.is_dir():
         temp_path.mkdir()
 
     FE_DIR = Path.cwd()/ "STC_ProbSim_Reduced"
 
-    EXP_IND: int = 0
+    DIC_PULSES = ("253","254","255")
     DIC_DIRS = (
         Path.cwd() / "STC_Exp_Pulse253",
         Path.cwd() / "STC_Exp_Pulse254",
         Path.cwd() / "STC_Exp_Pulse255",
     )
-    DIC_STEADY = [(261,694),
-                  (252,694),
-                  (211,694)]
+    DIC_STEADY = [(297,694),
+                  (302,694),
+                  (293,694)]
 
     if not FE_DIR.is_dir():
         raise FileNotFoundError(f"{FE_DIR}: directory does not exist.")
@@ -43,7 +47,6 @@ def main() -> None:
     save_path = Path.cwd() / "images_dic_pulse25X"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
-
 
     #---------------------------------------------------------------------------
     # Load simulation data
@@ -78,12 +81,24 @@ def main() -> None:
     # Push the displacement data into a single matrix from the separate files
     sim_num_nodes = sim_temp["disp_x"].shape[0]
     sim_num_doe = sim_temp["disp_x"].shape[1]
-    sim_disp = np.zeros((sim_num_nodes,sim_num_doe,3),dtype=np.float64)
+    sim_disp = np.zeros((sim_num_doe,sim_num_nodes,3),dtype=np.float64)
 
-    sim_disp[:,:,0] = sim_temp["disp_x"]
-    sim_disp[:,:,1] = sim_temp["disp_y"]
-    sim_disp[:,:,2] = sim_temp["disp_z"]
+    sim_disp[:,:,0] = sim_temp["disp_x"].T
+    sim_disp[:,:,1] = sim_temp["disp_y"].T
+    sim_disp[:,:,2] = sim_temp["disp_z"].T
     del sim_temp
+
+
+    # First column of sim coords is the node number, remove it
+    sim_coords = sim_coords[:,1:]
+    # Add a column of zeros so we have a z coord of 0 as only x and y are given
+    # in the coords file
+    sim_coords = np.hstack((sim_coords,np.zeros((sim_coords.shape[0],1))))
+
+    print()
+    print("sim_coords=")
+    print(sim_coords)
+    print()
 
     #---------------------------------------------------------------------------
     # Load experiment data
@@ -112,7 +127,7 @@ def main() -> None:
         print()
         print("Saving data to numpy binary")
         np.save(exp_coord_temp,exp_data["coords"])
-        np.save(exp_disp_temp,exp_data["coords"])
+        np.save(exp_disp_temp,exp_data["disp"])
 
     else:
         exp_data = {}
@@ -140,9 +155,30 @@ def main() -> None:
         print(f"{exp_data[ee].shape=}")
     print(80*"-")
 
-    exp_coords = exp_data["coords"]
-    exp_disp = exp_data["disp"]
+    #---------------------------------------------------------------------------
+    # EXP/SIM: Swap axes to be consistent with previous processing:
+    # shape = (n_frames,n_pts,n_comps).
+    # SIDE NOTE: should probably be (n_comps,n_frames,n_pts) for best C memory
+    # layout - row major = last dimension is consistent in memory
+
+    exp_coords = np.ascontiguousarray(
+        np.swapaxes(exp_data["coords"],0,1))
+    exp_disp = np.ascontiguousarray(
+        np.swapaxes(exp_data["disp"],0,1))
     del exp_data
+
+    print("SWAP AXES")
+    print("shape=(n_frames/exps,n_space_pts,n_comps)")
+    print()
+    print("SIM DATA: Swap Axes")
+    print(f"{sim_coords.shape=}")
+    print(f"{sim_disp.shape=}")
+    print()
+    print("EXP DATA: Swap Axes")
+    print(f"{exp_coords.shape=}")
+    print(f"{exp_disp.shape=}")
+    print(80*"-")
+
 
     #---------------------------------------------------------------------------
     # Transform simulation coords
@@ -172,35 +208,39 @@ def main() -> None:
     del sim_with_w
     print()
 
+    print(f"{sim_disp.shape=}")
+    print()
+
+    print("Transforming simulation coords...")
     sim_disp_t = np.zeros_like(sim_disp)
-    for ss in range(0,sim_num_nodes):
+    for ss in range(0,sim_disp.shape[0]):
         sim_disp_t[ss,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],
                                        sim_disp[ss,:,:].T).T
 
         rigid_disp = np.atleast_2d(np.mean(sim_disp_t[ss,:,:],axis=0)).T
-        rigid_disp = np.tile(rigid_disp,sim_num_doe).T
+        rigid_disp = np.tile(rigid_disp,sim_disp.shape[1]).T
         sim_disp_t[ss,:,:] -= rigid_disp
 
     sim_disp = sim_disp_t
     del sim_disp_t
-    print(f"{sim_disp.shape=}")
-    print()
+
 
     #---------------------------------------------------------------------------
     # Transform Exp Coords: required for each frame
     # NOTE: exp field arrays have shape=(n_frames,n_pts,n_comps)
 
-    print("Transforming experimental coords.")
+    print("Transforming experimental coords...")
     print(f"{exp_coords.shape=}")
 
     exp_coord_t = np.zeros_like(exp_coords)
     exp_disp_t = np.zeros_like(exp_disp)
 
-    for ff in range(0,exp_coords.shape[0]):
+    for ff in range(0,exp_disp.shape[0]):
         exp_to_world_mat = vm.fit_coord_matrix(exp_coords[ff,:,:])
         world_to_exp_mat = np.linalg.inv(exp_to_world_mat)
 
-        exp_with_w = np.hstack([exp_coords[ff,:,:],np.ones([exp_coords.shape[1],1])])
+        exp_with_w = np.hstack([exp_coords[ff,:,:],
+                                np.ones([exp_coords.shape[1],1])])
 
         exp_coord_temp = np.matmul(world_to_exp_mat,exp_with_w.T).T
         exp_coord_t[ff,:,:] = exp_coord_temp[:,:-1]
@@ -217,43 +257,109 @@ def main() -> None:
     exp_disp = exp_disp_t
     del exp_coord_t, exp_disp_t
 
+    print("Coord transforms complete.")
+    print()
+
     print("After transformation:")
     print(f"{exp_coords.shape=}")
     print(f"{exp_disp.shape=}")
     print()
 
-
     #---------------------------------------------------------------------------
     # Comparison of simulation and experimental coords
-    PLOT_COORD_COMP = True
+    PLOT_COORD_COMP = False
 
     if PLOT_COORD_COMP:
-        down_samp = 5
-        frame = 700
+        down_samp: int = 5
+        frame: int = int(round(exp_disp.shape[0]/2))
 
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
 
-        ax.scatter(exp_coords[frame,::down_samp,0],
-                    exp_coords[frame,::down_samp,1],
-                    exp_coords[frame,::down_samp,2])
         ax.scatter(sim_coords[:,0],
                     sim_coords[:,1],
-                    sim_coords[:,2])
+                    sim_coords[:,2],
+                    label="sim")
+        ax.scatter(exp_coords[frame,::down_samp,0],
+                    exp_coords[frame,::down_samp,1],
+                    exp_coords[frame,::down_samp,2],
+                    label="exp")
+
         #ax.set_zlim(-1.0,1.0)
+        ax.legend()
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
 
         fig = plt.figure()
         ax = fig.add_subplot()
-        ax.scatter(exp_coords[frame,::down_samp,0],exp_coords[frame,::down_samp,1])
-        ax.scatter(sim_coords[:,0],sim_coords[:,1])
+
+        ax.scatter(sim_coords[:,0],sim_coords[:,1],
+                   label="sim")
+        ax.scatter(exp_coords[frame,::down_samp,0],
+                   exp_coords[frame,::down_samp,1],
+                   label="exp")
+        ax.legend()
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         plt.show()
 
+    #---------------------------------------------------------------------------
+    # Plot displacement fields on transformed coords
+    print("Plotting displacement fields for sim and exp.")
 
+    sim_disp = sim_disp[:,:,[1,2,0]]
+    # Based on the figures:
+    # exp_disp_0 = sim_disp_1 = X
+    # exp_disp_1 = sim_disp_2 = Y
+    # exp_disp_2 = sim_disp_0 = Z
+
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+
+    PLOT_DISP_SIMEXP = True
+
+    if PLOT_DISP_SIMEXP:
+        frame: int = int(round(exp_disp.shape[0]/2))
+        div_n = 1000
+
+        x_vec = np.linspace(sim_x_min,sim_x_max,div_n)
+        y_vec = np.linspace(sim_y_min,sim_y_max,div_n)
+
+        (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
+
+        for aa in range(0,3):
+            exp_disp_grid = griddata(exp_coords[frame,:,0:2],
+                                     exp_disp[frame,:,aa],
+                                     (x_grid,y_grid),
+                                     method="linear")
+
+            fig,ax = plt.subplots()
+            image = ax.imshow(exp_disp_grid,
+                              extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+            #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
+            plt.title(f"Exp Data: disp_{aa}")
+            plt.colorbar(image)
+            plt.savefig(
+                save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_disp{aa}.png")
+
+
+        for aa in range(0,3):
+            sim_disp_grid = griddata(sim_coords[:,0:2],
+                                     sim_disp[0,:,aa],
+                                     (x_grid,y_grid),
+                                     method="linear")
+
+            fig,ax = plt.subplots()
+            image = ax.imshow(sim_disp_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+            #ax.scatter(sim_coords[:,0],sim_coords[:,1])
+            plt.title(f"Sim Data: disp_{aa}")
+            plt.colorbar(image)
+            plt.savefig(save_path/f"sim_map_{SIM_TAG}_disp{aa}.png")
+
+        plt.show()
 
 
 

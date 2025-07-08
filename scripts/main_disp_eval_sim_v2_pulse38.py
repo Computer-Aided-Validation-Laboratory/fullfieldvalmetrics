@@ -93,6 +93,7 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # Transform Sim Coords: only required once
     print("Transforming simulation coords.")
+    # Only given x,y in sim coords so add a z of zero
     sim_coords = np.hstack((sim_coords,np.zeros((sim_coords.shape[0],1))))
 
     # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
@@ -117,6 +118,10 @@ def main() -> None:
     print(f"{sim_coords.shape=}")
 
 
+    print(f"{sim_disp.shape=}")
+    print()
+
+
     sim_disp_t = np.zeros_like(sim_disp)
     for ss in range(0,sim_disp.shape[0]):
         sim_disp_t[ss,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],sim_disp[ss,:,:].T).T
@@ -127,9 +132,6 @@ def main() -> None:
 
     sim_disp = sim_disp_t
     del sim_disp_t
-
-    print(f"{sim_disp.shape=}")
-    print()
 
 
     #---------------------------------------------------------------------------
@@ -166,11 +168,10 @@ def main() -> None:
     print(f"{exp_disp.shape=}")
     print()
 
-    return
     #---------------------------------------------------------------------------
     # Comparison of simulation and experimental coords
 
-    PLOT_COORD_COMP = True
+    PLOT_COORD_COMP = False
 
     if PLOT_COORD_COMP:
         down_samp = 5
@@ -198,7 +199,6 @@ def main() -> None:
         ax.set_ylabel("Y")
         plt.show()
 
-    return
 
     #---------------------------------------------------------------------------
     # Plot displacement fields on transformed coords
