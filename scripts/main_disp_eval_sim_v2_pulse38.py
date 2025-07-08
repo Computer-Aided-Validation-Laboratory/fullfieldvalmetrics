@@ -340,7 +340,7 @@ def main() -> None:
     ax_strs = ("x","y","z")
 
     PLOT_AVG_DISP_MAPS = True
-    
+
     if PLOT_AVG_DISP_MAPS:
         for ii,ss in zip(ax_inds,ax_strs):
             vm.plot_disp_comp_maps(sim_coords,
@@ -378,11 +378,11 @@ def main() -> None:
     grid_shape = x_grid.shape
     grid_pts = x_grid.size
 
-    force_interp_common = False
+    FORCE_INTERP_COMMON = False
     sim_disp_common_path = temp_path / f"sim_disp_common_{SIM_TAG}.npy"
     exp_disp_common_path = temp_path / f"exp_disp_common_{SIM_TAG}.npy"
 
-    if force_interp_common or(not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file()):
+    if FORCE_INTERP_COMMON or(not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file()):
         print("Interpolating simulation displacements to common grid.")
         start_time = time.perf_counter()
         sim_disp_common = vm.interp_sim_to_common_grid(sim_coords,
@@ -441,16 +441,17 @@ def main() -> None:
     mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],yy],
                                exp_disp_common[:,mavm_inds[ax_str][0],yy])
 
-    # print(80*"-")
-    # print(f"{mavm_inds['x']=}")
-    # print(f"{mavm_inds['y']=}")
-    # print(f"{coords_common[mavm_inds['x'],:]=}")
-    # print(f"{coords_common[mavm_inds['y'],:]=}")
-    # print(80*"-")
-    # print()
+    print(80*"-")
+    print(f"{mavm_inds['x']=}")
+    print(f"{mavm_inds['y']=}")
+    print(f"{coords_common[mavm_inds['x'],:]=}")
+    print(f"{coords_common[mavm_inds['y'],:]=}")
+    print(80*"-")
+    print()
 
-    plot_mavm = True
-    if plot_mavm:
+    PLOT_MAVM = True
+    
+    if PLOT_MAVM:
         ax_str = "x"
         field_label = f"disp. {ax_str} [mm]"
         vm.mavm_figs(mavm_res[ax_str],

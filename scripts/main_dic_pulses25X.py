@@ -3,8 +3,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import stats
 from scipy.interpolate import griddata
 import valmetrics as vm
+
+# NOTE
+# - Can calculate difference maps for each epistemic sample so could have
+# hundreds, need to limit this to find the limiting cdfs for each case.
+# - Collapse full-field simulation data to limiting cdfs for each point?
 
 
 def main() -> None:
@@ -17,15 +23,22 @@ def main() -> None:
     EXP_IND: int = 2
     #===========================================================================
 
-    conv_to_mm: float = 1000.0
-
+    #---------------------------------------------------------------------------
+    # SIM: constants
     SIM_TAG = "simred"
-    temp_path = Path.cwd() / f"temp_{SIM_TAG}"
-    if not temp_path.is_dir():
-        temp_path.mkdir()
-
     FE_DIR = Path.cwd()/ "STC_ProbSim_Reduced"
+    conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
+    # Reduced: 5000 = 100 aleatory x 50 epistemic
+    # Full: 400 aleatory x 250 epistemic
+    # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
+    #samps_n: int = 5000
+    SIM_EPIS_N: int = 50
+    SIM_ALEA_N: int = 100
+
+
+    #---------------------------------------------------------------------------
+    # EXP: constants
     DIC_PULSES = ("253","254","255")
     DIC_DIRS = (
         Path.cwd() / "STC_Exp_Pulse253",
@@ -35,6 +48,12 @@ def main() -> None:
     DIC_STEADY = [(297,694),
                   (302,694),
                   (293,694)]
+
+    #---------------------------------------------------------------------------
+    # Check directories exist and create output directories
+    temp_path = Path.cwd() / f"temp_{SIM_TAG}"
+    if not temp_path.is_dir():
+        temp_path.mkdir()
 
     if not FE_DIR.is_dir():
         raise FileNotFoundError(f"{FE_DIR}: directory does not exist.")
@@ -55,6 +74,10 @@ def main() -> None:
     sim_data = {}
 
     sim_coord_path = FE_DIR / "Mesh.csv"
+    # sim_field_paths = {"disp_x": FE_DIR / "u (m)_All.npy",
+    #                    "disp_y": FE_DIR / "v (m)_All.npy",
+    #                    "disp_z": FE_DIR / "w (m)_All.npy",}
+
     sim_field_paths = {"disp_x": FE_DIR / "u (m)_All.npy",
                        "disp_y": FE_DIR / "v (m)_All.npy",
                        "disp_z": FE_DIR / "w (m)_All.npy",}
@@ -69,23 +92,36 @@ def main() -> None:
     print(f"Loading sim coords took: {end_time-start_time}s\n")
     del sim_coords_df
 
+    sim_num_nodes = sim_coords.shape[0]
+
     # Load simulation field data
     print(f"Loading simulation data from:\n    {FE_DIR}")
     start_time = time.perf_counter()
     sim_temp = {}
     for ss in sim_field_paths:
+        # shape=(n_pts,n_doe)
         sim_temp[ss] = np.load(sim_field_paths[ss])
+        # shape=(n_doe,n_pts)
+        sim_temp[ss] = sim_temp[ss].T
+        print(f"{sim_temp[ss].shape=}")
+        # shape=(n_epis,n_alea,n_pts)
+        sim_temp[ss] = sim_temp[ss].reshape(SIM_EPIS_N,SIM_ALEA_N,sim_num_nodes)
+
         if "disp" in ss:
             sim_temp[ss] = sim_temp[ss]*conv_to_mm
 
     # Push the displacement data into a single matrix from the separate files
-    sim_num_nodes = sim_temp["disp_x"].shape[0]
-    sim_num_doe = sim_temp["disp_x"].shape[1]
-    sim_disp = np.zeros((sim_num_doe,sim_num_nodes,3),dtype=np.float64)
+    # shape=(n_epis,n_alea,n_nodes,n_comps[x,y,z])
+    sim_disp = np.zeros((SIM_EPIS_N,SIM_ALEA_N,sim_num_nodes,3),dtype=np.float64)
 
-    sim_disp[:,:,0] = sim_temp["disp_x"].T
-    sim_disp[:,:,1] = sim_temp["disp_y"].T
-    sim_disp[:,:,2] = sim_temp["disp_z"].T
+    print()
+    print(f"{sim_coords.shape=}")
+    print(f"{sim_temp['disp_x'].shape=}")
+    print()
+
+    sim_disp[:,:,:,0] = sim_temp["disp_x"]
+    sim_disp[:,:,:,1] = sim_temp["disp_y"]
+    sim_disp[:,:,:,2] = sim_temp["disp_z"]
     del sim_temp
 
 
@@ -181,6 +217,35 @@ def main() -> None:
 
 
     #---------------------------------------------------------------------------
+    # SIM: find limiting epistemic errors / CDFs
+    sim_cdf_max_sum = 0.0
+    sim_cdf_min_sum = 0.0
+    sim_cdf_max = {}
+    sim_cdf_min = {}
+
+    # Which espistemic error causes the extreme cdfs?
+    # For a fixed point and fixed component
+    for ee in range(sim_disp.shape[0]): # loop over epistemic errors
+
+        for pp in range(sim_disp.shape[2]): # loop over points
+            for cc in range(sim_disp.shape[3]): # loop over components
+                # Calculate the ecdf over aleatory errors
+                this_cdf = stats.ecdf(sim_disp[ee,:,pp,cc]).cdf
+                this_cdf_sum = np.sum(this_cdf.quantiles)
+
+                # Check cdf limits
+                if this_cdf_sum > sim_cdf_max_sum:
+                    sim_cdf_max_sum = this_cdf_sum
+
+                if this_cdf_sum < sim_cdf_min_sum:
+                    sim_cdf_min_sum = this_cdf_sum
+
+
+
+                # Calculate ecdf for each point in the field over aleatory errors
+
+    return
+    #---------------------------------------------------------------------------
     # Transform simulation coords
     # NOTE: field arrays have shape=(n_doe_samps,n_pts,n_comps)
 
@@ -213,12 +278,13 @@ def main() -> None:
 
     print("Transforming simulation coords...")
     sim_disp_t = np.zeros_like(sim_disp)
-    for ss in range(0,sim_disp.shape[0]):
+    for ee in range(0,sim_disp.shape[0]):
+        for aa in range(0,sim_disp.shape[1]):
         sim_disp_t[ss,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],
                                        sim_disp[ss,:,:].T).T
 
         rigid_disp = np.atleast_2d(np.mean(sim_disp_t[ss,:,:],axis=0)).T
-        rigid_disp = np.tile(rigid_disp,sim_disp.shape[1]).T
+        rigid_disp = np.tile(rigid_disp,sim_disp.shape[2]).T
         sim_disp_t[ss,:,:] -= rigid_disp
 
     sim_disp = sim_disp_t
