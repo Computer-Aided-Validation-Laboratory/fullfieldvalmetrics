@@ -328,7 +328,116 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
                        ax_ind: int,
                        ax_str: str,
                        scale_cbar: bool = True,
-                       save_tag: str = "") -> None:
+                       save_tag: str = "",
+                       save_path: Path | None = None) -> None:
+
+    if save_path is None:
+        save_path = Path.cwd() / "images"
+
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+
+    step = 0.5
+    x_vec = np.arange(sim_x_min,sim_x_max,step)
+    y_vec = np.arange(sim_y_min,sim_y_max,step)
+    (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
+
+    exp_disp_grid_avg = griddata(exp_coords_avg[:,0:2],
+                             exp_disp_avg[:,ax_ind],
+                             (x_grid,y_grid),
+                             method="linear")
+
+    # This will do minimal interpolation as the input points are the same as the sim
+    sim_disp_grid_avg = griddata(sim_coords[:,0:2],
+                             sim_disp_avg[:,ax_ind],
+                             (x_grid,y_grid),
+                             method="linear")
+
+    disp_diff_avg = sim_disp_grid_avg - exp_disp_grid_avg
+
+    color_max = np.nanmax((np.nanmax(sim_disp_grid_avg),np.nanmax(exp_disp_grid_avg)))
+    color_min = np.nanmin((np.nanmin(sim_disp_grid_avg),np.nanmin(exp_disp_grid_avg)))
+
+    cbar_font_size = 6.0
+
+    plot_opts = pyvale.PlotOptsGeneral()
+    fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
+
+    fig,ax = plt.subplots(1,3,figsize=fig_size,layout='constrained')
+    fig.set_dpi(plot_opts.resolution)
+
+    if scale_cbar:
+        image = ax[0].imshow(exp_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                            vmin = color_min,
+                            vmax = color_max)
+    else:
+        image = ax[0].imshow(exp_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+
+    ax[0].set_title(f"Exp. Avg. \ndisp. {ax_str} [mm]",
+                    fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+    ax[0].set_xlabel("x [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    ax[0].set_ylabel("y [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    cbar = plt.colorbar(image)
+    cbar.ax.tick_params(labelsize=cbar_font_size)
+
+    if scale_cbar:
+        image = ax[1].imshow(sim_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                            vmin = color_min,
+                            vmax = color_max)
+    else:
+        image = ax[1].imshow(sim_disp_grid_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+
+    ax[1].set_title(f"Sim. Avg.\ndisp. {ax_str} [mm]",
+                    fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+    ax[1].set_xlabel("x [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    ax[1].set_ylabel("y [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    cbar = plt.colorbar(image)
+    cbar.ax.tick_params(labelsize=cbar_font_size)
+
+    image = ax[2].imshow(disp_diff_avg,
+                         extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                         cmap="RdBu")
+    ax[2].set_title(f"(Sim. - Exp.)\ndisp. {ax_str} [mm]",
+                    fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+    ax[2].set_xlabel("x [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    ax[2].set_ylabel("y [mm]",
+                fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
+    cbar = plt.colorbar(image)
+    cbar.ax.tick_params(labelsize=cbar_font_size)
+
+    if scale_cbar:
+        if save_tag:
+            save_fig_path = save_path/f"disp_comp_{ax_str}_{save_tag}.png"
+        else:
+            save_fig_path = save_path/f"disp_comp_{ax_str}.png"
+    else:
+        if save_tag:
+            save_fig_path = save_path/f"disp_comp_{ax_str}_cbarfree_{save_tag}.png"
+        else:
+            save_fig_path = save_path/f"disp_comp_{ax_str}_cbarfree.png"
+
+    fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
+def plot_avg_disp_maps_nosave(sim_coords: np.ndarray,
+                       sim_disp_avg: np.ndarray,
+                       exp_coords_avg: np.ndarray,
+                       exp_disp_avg: np.ndarray,
+                       ax_ind: int,
+                       ax_str: str,
+                       scale_cbar: bool = True,
+                       ) -> tuple[Any,Any]:
 
     sim_x_min = np.min(sim_coords[:,0])
     sim_x_max = np.max(sim_coords[:,0])
@@ -411,18 +520,7 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
     cbar = plt.colorbar(image)
     cbar.ax.tick_params(labelsize=cbar_font_size)
 
-    if scale_cbar:
-        if save_tag:
-            save_path = Path("images")/f"disp_comp_{ax_str}_{save_tag}.png"
-        else:
-            save_path = Path("images")/f"disp_comp_{ax_str}.png"
-    else:
-        if save_tag:
-            save_path = Path("images")/f"disp_comp_{ax_str}_cbarfree_{save_tag}.png"
-        else:
-            save_path = Path("images")/f"disp_comp_{ax_str}_cbarfree.png"
-
-    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
+    return (fig,ax)
 
 
 def _interp_one_instance(coords: np.ndarray,

@@ -19,7 +19,7 @@ def main() -> None:
 
     conv_to_mm: float = 1000.0
 
-    SIM_TAG = "25Xred"
+    SIM_TAG = "simred"
     temp_path = Path.cwd() / f"temp_{SIM_TAG}"
     if not temp_path.is_dir():
         temp_path.mkdir()
@@ -359,7 +359,90 @@ def main() -> None:
             plt.colorbar(image)
             plt.savefig(save_path/f"sim_map_{SIM_TAG}_disp{aa}.png")
 
-        plt.show()
+    plt.close("all")
+
+    #---------------------------------------------------------------------------
+    # Average fields from experiment and simulation to plot the difference
+    print("\nAveraging experiment steady state and simulation for full-field comparison.")
+    # exp_avg_start: int = 300
+    # exp_avg_end: int = 650
+
+    # No need to slice in this case as we have only loaded the steady state data
+    # exp_coords = exp_coords[exp_avg_start:exp_avg_end,:,:]
+    # exp_disp = exp_disp[exp_avg_start:exp_avg_end,:,:]
+
+    # Had to change these to nanmean because of problems in experimental data
+    # Again, no need to slice here as we only have steady state data
+    exp_coords_avg = np.nanmean(exp_coords,axis=0)
+    exp_disp_avg = np.nanmean(exp_disp,axis=0)
+    sim_disp_avg = np.nanmean(sim_disp,axis=0)
+
+    print(f"{exp_disp_avg.shape=}")
+    print(f"{sim_disp_avg.shape=}")
+
+    elem_size = np.min(np.sqrt(np.sum((sim_coords[1:,:] - sim_coords[0,:])**2,axis=1)))
+
+    tol = 1e-6
+    scale = 1/tol
+    round_arr = np.round(sim_coords[:,0] * scale) / scale
+    num_elem_x = np.unique(round_arr)
+    round_arr = np.round(sim_coords[:,1]* scale) / scale
+    num_elem_y = np.unique(round_arr)
+
+    print(f"{elem_size=}")
+    print()
+    print(f"{sim_x_min=}")
+    print(f"{sim_x_max=}")
+    print(f"{sim_y_min=}")
+    print(f"{sim_y_max=}")
+    print(f"{(sim_x_max-sim_x_min)=}")
+    print(f"{(sim_y_max-sim_y_min)=}")
+    print()
+    print(f"{num_elem_x.shape=}")
+    print(f"{num_elem_y.shape=}")
+    print()
+
+    ax_inds = (0,1,2)
+    ax_strs = ("x","y","z")
+
+    PLOT_AVG_DISP_MAPS = True
+
+    if PLOT_AVG_DISP_MAPS:
+        for ii,ss in zip(ax_inds,ax_strs):
+            (fig,ax) = vm.plot_avg_disp_maps_nosave(
+                sim_coords,
+                sim_disp_avg,
+                exp_coords_avg,
+                exp_disp_avg,
+                ii,
+                ss,
+                scale_cbar=True,
+            )
+
+            save_fig_path = (save_path
+                         / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_disp_{ss}_comp.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+            (fig,ax) = vm.plot_avg_disp_maps_nosave(
+                sim_coords,
+                sim_disp_avg,
+                exp_coords_avg,
+                exp_disp_avg,
+                ii,
+                ss,
+                scale_cbar=False
+            )
+
+            save_fig_path = (save_path
+                / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_disp_{ss}_comp_cbarfree.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
+    #---------------------------------------------------------------------------
+    print(80*"-")
+    print("COMPLETE.")
+    plt.show()
+
 
 
 

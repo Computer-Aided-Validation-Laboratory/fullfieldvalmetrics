@@ -11,7 +11,6 @@ def main() -> None:
     print("MAVM Calc for DIC Data: Pulse 38")
     print(80*"=")
 
-
     SIM_TAG = "v2"
     temp_path = Path.cwd() / f"temp_{SIM_TAG}"
     if not temp_path.is_dir():
@@ -340,8 +339,9 @@ def main() -> None:
     ax_inds = (0,1,2)
     ax_strs = ("x","y","z")
 
-    plot_on = True
-    if plot_on:
+    PLOT_AVG_DISP_MAPS = True
+    
+    if PLOT_AVG_DISP_MAPS:
         for ii,ss in zip(ax_inds,ax_strs):
             vm.plot_disp_comp_maps(sim_coords,
                             sim_disp_avg,
@@ -440,7 +440,6 @@ def main() -> None:
     ax_str = "y"
     mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],yy],
                                exp_disp_common[:,mavm_inds[ax_str][0],yy])
-
 
     # print(80*"-")
     # print(f"{mavm_inds['x']=}")
