@@ -257,7 +257,6 @@ def main() -> None:
 
     find_point_0 = np.array([20,-15]) # mm
     find_point_1 = np.array([0,-15])  # mm
-
     trace_inds_0 = vm.find_nearest_points(exp_coords_avg,find_point_0,k=5)
     trace_inds_1 = vm.find_nearest_points(exp_coords_avg,find_point_1,k=5)
 
@@ -450,7 +449,7 @@ def main() -> None:
     print()
 
     PLOT_MAVM = True
-    
+
     if PLOT_MAVM:
         ax_str = "x"
         field_label = f"disp. {ax_str} [mm]"

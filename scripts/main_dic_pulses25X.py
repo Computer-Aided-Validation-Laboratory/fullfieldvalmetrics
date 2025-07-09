@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.interpolate import griddata
+import pyvale
 import valmetrics as vm
 
 # NOTE
@@ -20,12 +21,23 @@ def main() -> None:
     print()
 
     #===========================================================================
-    EXP_IND: int = 2
+    EXP_IND: int = 0
     #===========================================================================
+
+    comps = (0,1,2)
+    (xx,yy,zz) = (0,1,2)
+
+    plot_opts = pyvale.PlotOptsGeneral()
+    fig_ind: int = 0
+    exp_c: str = "tab:orange"
+    sim_c: str = "tab:blue"
+
+    DISP_COMP_STRS = ("x","y","z")
+    STRAIN_COMP_STRS = ("xx","yy","xy")
 
     #---------------------------------------------------------------------------
     # SIM: constants
-    SIM_TAG = "simred"
+    SIM_TAG = "red"
     FE_DIR = Path.cwd()/ "STC_ProbSim_Reduced"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
@@ -41,13 +53,17 @@ def main() -> None:
     # EXP: constants
     DIC_PULSES = ("253","254","255")
     DIC_DIRS = (
-        Path.cwd() / "STC_Exp_Pulse253",
-        Path.cwd() / "STC_Exp_Pulse254",
-        Path.cwd() / "STC_Exp_Pulse255",
+        Path.cwd() / "STC_Exp_253",
+        Path.cwd() / "STC_Exp_254",
+        Path.cwd() / "STC_Exp_255",
     )
-    DIC_STEADY = [(297,694),
-                  (302,694),
-                  (293,694)]
+    # NOTE: first 100 frames are averaged to create the steady state reference
+    # as frame 0000 the test data starts at frame 0100 and we need to then take
+    # frames based on this frame number
+    FRAME_OFFSET: int = 99
+    DIC_STEADY = [(297-FRAME_OFFSET,694-FRAME_OFFSET+1),
+                  (302-FRAME_OFFSET,694-FRAME_OFFSET+1),
+                  (293-FRAME_OFFSET,694-FRAME_OFFSET+1)] # Need to add 1 to slice
 
     #---------------------------------------------------------------------------
     # Check directories exist and create output directories
@@ -140,10 +156,12 @@ def main() -> None:
     # Load experiment data
     print("LOAD EXP DATA")
     print(80*"-")
+    FORCE_EXP_LOAD = False
     exp_coord_temp = temp_path / f"exp_coords_{EXP_IND}.npy"
     exp_disp_temp = temp_path / f"exp_disp_{EXP_IND}.npy"
 
-    if not exp_coord_temp.is_file() and not exp_disp_temp.is_file():
+    if FORCE_EXP_LOAD or (
+        not exp_coord_temp.is_file() and not exp_disp_temp.is_file()):
 
         exp_field_slices = {"coords":slice(2,5),
                             "disp":slice(5,8),}
@@ -215,39 +233,11 @@ def main() -> None:
     print(f"{exp_disp.shape=}")
     print(80*"-")
 
-
     #---------------------------------------------------------------------------
-    # SIM: find limiting epistemic errors / CDFs
-    sim_cdf_max_sum = 0.0
-    sim_cdf_min_sum = 0.0
-    sim_cdf_max = {}
-    sim_cdf_min = {}
-
-    # Which espistemic error causes the extreme cdfs?
-    # For a fixed point and fixed component
-    for ee in range(sim_disp.shape[0]): # loop over epistemic errors
-
-        for pp in range(sim_disp.shape[2]): # loop over points
-            for cc in range(sim_disp.shape[3]): # loop over components
-                # Calculate the ecdf over aleatory errors
-                this_cdf = stats.ecdf(sim_disp[ee,:,pp,cc]).cdf
-                this_cdf_sum = np.sum(this_cdf.quantiles)
-
-                # Check cdf limits
-                if this_cdf_sum > sim_cdf_max_sum:
-                    sim_cdf_max_sum = this_cdf_sum
-
-                if this_cdf_sum < sim_cdf_min_sum:
-                    sim_cdf_min_sum = this_cdf_sum
-
-
-
-                # Calculate ecdf for each point in the field over aleatory errors
-
-    return
-    #---------------------------------------------------------------------------
-    # Transform simulation coords
+    # SIM: Transform simulation coords
     # NOTE: field arrays have shape=(n_doe_samps,n_pts,n_comps)
+    print(80*"-")
+    print("SIM: Fitting transformation matrix...")
 
     # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
     sim_to_world_mat = vm.fit_coord_matrix(sim_coords)
@@ -273,26 +263,29 @@ def main() -> None:
     del sim_with_w
     print()
 
+    #---------------------------------------------------------------------------
+    # SIM: Transform simulation displacements
+    # NOTE: field arrays have shape=(n_doe_samps,n_pts,n_comps)
+    print(80*"-")
+    print("SIM: Transforming simulation displacements...")
     print(f"{sim_disp.shape=}")
     print()
 
-    print("Transforming simulation coords...")
     sim_disp_t = np.zeros_like(sim_disp)
     for ee in range(0,sim_disp.shape[0]):
         for aa in range(0,sim_disp.shape[1]):
-        sim_disp_t[ss,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],
-                                       sim_disp[ss,:,:].T).T
+            sim_disp_t[ee,aa,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],
+                                        sim_disp[ee,aa,:,:].T).T
 
-        rigid_disp = np.atleast_2d(np.mean(sim_disp_t[ss,:,:],axis=0)).T
-        rigid_disp = np.tile(rigid_disp,sim_disp.shape[2]).T
-        sim_disp_t[ss,:,:] -= rigid_disp
+            rigid_disp = np.atleast_2d(np.mean(sim_disp_t[ee,aa,:,:],axis=0)).T
+            rigid_disp = np.tile(rigid_disp,sim_disp.shape[2]).T
+            sim_disp_t[ee,aa,:,:] -= rigid_disp
 
     sim_disp = sim_disp_t
     del sim_disp_t
 
-
     #---------------------------------------------------------------------------
-    # Transform Exp Coords: required for each frame
+    # EXP: Transform coords, required for each frame
     # NOTE: exp field arrays have shape=(n_frames,n_pts,n_comps)
 
     print("Transforming experimental coords...")
@@ -332,12 +325,12 @@ def main() -> None:
     print()
 
     #---------------------------------------------------------------------------
-    # Comparison of simulation and experimental coords
+    # EXP-SIM Comparison of oords
     PLOT_COORD_COMP = False
 
     if PLOT_COORD_COMP:
         down_samp: int = 5
-        frame: int = int(round(exp_disp.shape[0]/2))
+        exp_frame: int = int(round(exp_disp.shape[0]/2))
 
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
@@ -346,9 +339,9 @@ def main() -> None:
                     sim_coords[:,1],
                     sim_coords[:,2],
                     label="sim")
-        ax.scatter(exp_coords[frame,::down_samp,0],
-                    exp_coords[frame,::down_samp,1],
-                    exp_coords[frame,::down_samp,2],
+        ax.scatter(exp_coords[exp_frame,::down_samp,0],
+                    exp_coords[exp_frame,::down_samp,1],
+                    exp_coords[exp_frame,::down_samp,2],
                     label="exp")
 
         #ax.set_zlim(-1.0,1.0)
@@ -362,19 +355,20 @@ def main() -> None:
 
         ax.scatter(sim_coords[:,0],sim_coords[:,1],
                    label="sim")
-        ax.scatter(exp_coords[frame,::down_samp,0],
-                   exp_coords[frame,::down_samp,1],
+        ax.scatter(exp_coords[exp_frame,::down_samp,0],
+                   exp_coords[exp_frame,::down_samp,1],
                    label="exp")
         ax.legend()
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         plt.show()
 
+
     #---------------------------------------------------------------------------
     # Plot displacement fields on transformed coords
     print("Plotting displacement fields for sim and exp.")
 
-    sim_disp = sim_disp[:,:,[1,2,0]]
+    sim_disp = sim_disp[:,:,:,[1,2,0]]
     # Based on the figures:
     # exp_disp_0 = sim_disp_1 = X
     # exp_disp_1 = sim_disp_2 = Y
@@ -385,10 +379,14 @@ def main() -> None:
     sim_y_min = np.min(sim_coords[:,1])
     sim_y_max = np.max(sim_coords[:,1])
 
-    PLOT_DISP_SIMEXP = True
+    PLOT_DISP_SIMEXP = False
 
     if PLOT_DISP_SIMEXP:
-        frame: int = int(round(exp_disp.shape[0]/2))
+        # Frame to plot from the experiment
+        exp_frame: int = int(round(exp_disp.shape[0]/2))
+        # Sample from the DOE to plot
+        sim_plot_epis: int = 0
+        sim_plot_alea: int = 0
         div_n = 1000
 
         x_vec = np.linspace(sim_x_min,sim_x_max,div_n)
@@ -397,8 +395,8 @@ def main() -> None:
         (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
         for aa in range(0,3):
-            exp_disp_grid = griddata(exp_coords[frame,:,0:2],
-                                     exp_disp[frame,:,aa],
+            exp_disp_grid = griddata(exp_coords[exp_frame,:,0:2],
+                                     exp_disp[exp_frame,:,aa],
                                      (x_grid,y_grid),
                                      method="linear")
 
@@ -406,26 +404,114 @@ def main() -> None:
             image = ax.imshow(exp_disp_grid,
                               extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
-            plt.title(f"Exp Data: disp_{aa}")
+            plt.title(f"Exp Data: disp. {DISP_COMP_STRS[aa]}")
             plt.colorbar(image)
             plt.savefig(
-                save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_disp{aa}.png")
+                save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
 
 
         for aa in range(0,3):
             sim_disp_grid = griddata(sim_coords[:,0:2],
-                                     sim_disp[0,:,aa],
+                                     sim_disp[sim_plot_epis,sim_plot_alea,:,aa],
                                      (x_grid,y_grid),
                                      method="linear")
 
             fig,ax = plt.subplots()
             image = ax.imshow(sim_disp_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
-            plt.title(f"Sim Data: disp_{aa}")
+            plt.title(f"Sim Data: disp. {DISP_COMP_STRS[aa]}")
             plt.colorbar(image)
-            plt.savefig(save_path/f"sim_map_{SIM_TAG}_disp{aa}.png")
+            plt.savefig(save_path/f"sim_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
 
-    plt.close("all")
+
+
+    #---------------------------------------------------------------------------
+    # SIM: find limiting epistemic errors / CDFs
+    print(80*"-")
+    print("SIM: Extracting limiting CDFs from epistemic sampling of simulation...")
+
+    # print("Sorting displacement data for ecdfs")
+    # sim_disp = np.sort(sim_disp,axis=1)
+    # print("ECDF sort complete.")
+    # print()
+
+    print("Summing along aleatory axis and finding max/min...")
+    sim_limits = np.sum(sim_disp,axis=1)
+    sim_cdf_max_e = np.argmax(sim_limits,axis=0)
+    sim_cdf_min_e = np.argmin(sim_limits,axis=0)
+
+    print(f"{sim_disp.shape=}")
+    print(f"{sim_limits.shape=}")
+    print(f"{sim_cdf_max_e.shape=}")
+    print(f"{sim_cdf_min_e.shape=}")
+    print()
+    print(f"{sim_cdf_max_e[0,0]=}")
+    print(f"{sim_cdf_min_e[0,0]=}")
+    print()
+
+    # Find a couple of points of interest for each component
+    sim_cent_coords = (np.max(sim_coords,axis=0) + np.min(sim_coords,axis=0))/2
+    print("SIM COORD LIMITS:")
+    print(f"{np.max(sim_coords,axis=0)=}")
+    print(f"{np.min(sim_coords,axis=0)=}")
+    print(f"{sim_cent_coords=}")
+    print(f"{np.mean(sim_coords,axis=0)=}")
+    print()
+
+    # NOTE: exp coords are a function of the frame
+    exp_coords_avg = np.mean(exp_coords,axis=0)
+    exp_cent_coords = (np.max(exp_coords_avg,axis=0) + np.min(exp_coords_avg,axis=0))/2
+    print("EXP COORD LIMITS:")
+    print(f"{np.max(exp_coords_avg,axis=0)=}")
+    print(f"{np.min(exp_coords_avg,axis=0)=}")
+    print(f"{exp_cent_coords=}")
+    print(f"{np.mean(exp_coords_avg,axis=0)=}")
+    print()
+
+    find_point_0 = np.array([24,-16.5]) # mm
+    find_point_1 = np.array([0,-16.5])  # mm
+    cdf_inds_0 = vm.find_nearest_points(sim_coords,find_point_0,k=5)
+    cdf_inds_1 = vm.find_nearest_points(sim_coords,find_point_1,k=5)
+
+    print("Extracted points for plotting sim cdfs.")
+    print(f"{cdf_inds_0=}")
+    print(f"{cdf_inds_1=}")
+    print(f"{sim_coords[cdf_inds_0[0],:]=}")
+    print(f"{sim_coords[cdf_inds_1[0],:]=}")
+
+    disp_inds = np.zeros((3,),dtype=np.uintp)
+    # Max disp_x at corners of the block
+    disp_inds[xx] = cdf_inds_0[0]
+    # max disp y,z in the centre top of the block
+    disp_inds[yy] = cdf_inds_1[0]
+    disp_inds[zz] = cdf_inds_1[0]
+
+    print("Plotting all sim cdfs and limit cdfs for key points")
+    for cc in comps:
+        pp = disp_inds[cc]
+        fig, axs=plt.subplots(1,1,
+                            figsize=plot_opts.single_fig_size_landscape,
+                            layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        for ee in range(sim_disp.shape[0]):
+            axs.ecdf(sim_disp[ee,:,pp,cc],color='tab:blue',linewidth=plot_opts.lw)
+
+        max_e = sim_cdf_max_e[pp,cc]
+        axs.ecdf(sim_disp[max_e,:,pp,cc],ls="--",color='black',linewidth=plot_opts.lw)
+
+        min_e = sim_cdf_min_e[pp,cc]
+        axs.ecdf(sim_disp[min_e,:,pp,cc],ls="--",color='black',linewidth=plot_opts.lw)
+
+        this_coord = sim_coords[disp_inds[cc],:]
+        title_str = f"(x,y)=({this_coord[0]:.2f},{this_coord[1]:.2f})"
+        ax_str = f"sim. disp. {DISP_COMP_STRS[cc]} [mm]"
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+        plt.savefig(save_path/f"sim_disp_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+
 
     #---------------------------------------------------------------------------
     # Average fields from experiment and simulation to plot the difference
@@ -441,7 +527,9 @@ def main() -> None:
     # Again, no need to slice here as we only have steady state data
     exp_coords_avg = np.nanmean(exp_coords,axis=0)
     exp_disp_avg = np.nanmean(exp_disp,axis=0)
+    # Average twice, once over epistemic uncertainty and once over aleatory
     sim_disp_avg = np.nanmean(sim_disp,axis=0)
+    sim_disp_avg = np.nanmean(sim_disp_avg,axis=0)
 
     print(f"{exp_disp_avg.shape=}")
     print(f"{sim_disp_avg.shape=}")

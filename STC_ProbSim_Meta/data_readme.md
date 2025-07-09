@@ -1,4 +1,5 @@
 # Data Description
+https://ukaeauk-my.sharepoint.com/:f:/g/personal/jonathan_horne-jones_ukaea_uk/Es5yfMPMxE1Mr7A6V3EXtCUBV2uYcx-QKRdAWGjc63CGgg?e=7fcWqt
 
 I've now completed the DIC based position and orientation processing. This has turned out to be quite noisy (probably due to the variability in the point cloud registration to align the coil scan and DIC). Given the epistemic error (assuming to be +- 0.5*pixel spacing) is much smaller we are going to have to use a combined epistemic - aleatoric uncertainty propagation. To make things a little simpler, I have used the fact that the input uncertainty is always dominated by either epistemic or aleatoric uncertainty to avoid use of the Dempster-Shafer (overlapping interval analysis) method. For each output we now have an ensemble of CDFs (e.g. below). I have generated this with 400 aleatoric samples and 250 epistemic samples. The sampling is done in a nested loop - for each epistemic sample 400 aleatoric samples are drawn. This is reflected in the data, with each epistemic sample generating 400 rows of data.
 

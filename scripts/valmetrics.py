@@ -49,6 +49,18 @@ def load_exp_data(data_path: Path,
     csv_files = list(data_path.glob("*" + load_opts.file_ext))
     csv_files = sorted(csv_files)
 
+    # print(80*"-")
+    # print("Debug load_exp_data:")
+    # print(f"{csv_files[0]=}")
+    # print(f"{csv_files[1]=}")
+    # print(f"{csv_files[-1]=}")
+    # print()
+    # if frames is not None:
+    #     slice_frames = csv_files[frames]
+    #     print(f"{slice_frames[0]=}")
+    #     print(f"{slice_frames[-1]=}")
+    # print(80*"-")
+
     if frames is not None:
         csv_files = csv_files[frames]
 
@@ -127,7 +139,7 @@ def _load_one_exp(path: Path,
     data = pd.read_csv(path)
     data = data.to_numpy()
 
-    exp_data = {}
+    exp_data: dict[str,np.ndarray] = {}
     for ff in field_slices:
         # shape=(num_points,slice.len)
         exp_data[ff] = data[:,field_slices[ff]]
