@@ -538,7 +538,12 @@ def plot_avg_disp_maps_nosave(sim_coords: np.ndarray,
 def _interp_one_instance(coords: np.ndarray,
                          disp: np.ndarray,
                          x_grid: np.ndarray,
-                         y_grid: np.ndarray) -> np.ndarray:
+                         y_grid: np.ndarray,
+                         status: str | None = None) -> np.ndarray:
+
+    if status is not None:
+        print(f"Interpolating field components: {status}")
+
     disp_common = np.zeros((x_grid.size,3))
 
     for aa in range(0,3):
@@ -555,7 +560,7 @@ def interp_sim_to_common_grid(coords: np.ndarray,
                               disp: np.ndarray,
                               x_grid: np.ndarray,
                               y_grid: np.ndarray,
-                              run_para: None | int = None) -> np.ndarray:
+                              run_para: int | None = None) -> np.ndarray:
 
 
     if run_para is not None:
@@ -563,26 +568,29 @@ def interp_sim_to_common_grid(coords: np.ndarray,
             processes = []
 
             for ss in range(0,disp.shape[0]):
+                status = f"{ss}/{disp.shape[0]}"
                 processes.append(pool.apply_async(_interp_one_instance,
                                                   args=(coords[:,0:2],
                                                         disp[ss,:,:],
                                                         x_grid,
-                                                        y_grid)))
+                                                        y_grid,
+                                                        status)))
 
             data_list = [pp.get() for pp in processes]
 
         disp_common = np.stack(data_list)
 
-        print(80*"-")
-        print(f"{len(data_list)=}")
-        print(f"{data_list[0].shape=}")
-        print(f"{disp_common.shape=}")
-        print(80*"-")
+        # print(80*"-")
+        # print(f"{len(data_list)=}")
+        # print(f"{data_list[0].shape=}")
+        # print(f"{disp_common.shape=}")
+        # print(80*"-")
 
         return disp_common
 
-
     # Non-parallel run
+    disp_common = np.zeros_like(disp)
+
     for ss in range(0,disp.shape[0]):
         print(f"Interpolating: {ss}")
         for aa in range(0,3):
@@ -607,21 +615,23 @@ def interp_exp_to_common_grid(coords: np.ndarray,
             processes = []
 
             for ss in range(0,disp.shape[0]):
+                status = f"{ss}/{disp.shape[0]}"
                 processes.append(pool.apply_async(_interp_one_instance,
                                                   args=(coords[ss,:,0:2],
                                                         disp[ss,:,:],
                                                         x_grid,
-                                                        y_grid)))
+                                                        y_grid,
+                                                        status)))
 
             data_list = [pp.get() for pp in processes]
 
         disp_common = np.stack(data_list)
 
-        print(80*"-")
-        print(f"{len(data_list)=}")
-        print(f"{data_list[0].shape=}")
-        print(f"{disp_common.shape=}")
-        print(80*"-")
+        # print(80*"-")
+        # print(f"{len(data_list)=}")
+        # print(f"{data_list[0].shape=}")
+        # print(f"{disp_common.shape=}")
+        # print(80*"-")
 
         return disp_common
 

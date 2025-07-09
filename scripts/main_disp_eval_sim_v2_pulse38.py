@@ -381,7 +381,8 @@ def main() -> None:
     sim_disp_common_path = temp_path / f"sim_disp_common_{SIM_TAG}.npy"
     exp_disp_common_path = temp_path / f"exp_disp_common_{SIM_TAG}.npy"
 
-    if FORCE_INTERP_COMMON or(not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file()):
+    if (FORCE_INTERP_COMMON or
+        (not sim_disp_common_path.is_file() and not exp_disp_common_path.is_file())):
         print("Interpolating simulation displacements to common grid.")
         start_time = time.perf_counter()
         sim_disp_common = vm.interp_sim_to_common_grid(sim_coords,
