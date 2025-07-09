@@ -159,8 +159,8 @@ def main() -> None:
     print("LOAD EXP DATA")
     print(80*"-")
     FORCE_EXP_LOAD = False
-    exp_coord_temp = temp_path / f"exp_coords_{EXP_IND}.npy"
-    exp_disp_temp = temp_path / f"exp_disp_{EXP_IND}.npy"
+    exp_coord_temp = temp_path / f"exp{EXP_IND}_coords.npy"
+    exp_disp_temp = temp_path / f"exp{EXP_IND}_disp.npy"
 
     if FORCE_EXP_LOAD or (
         not exp_coord_temp.is_file() and not exp_disp_temp.is_file()):
@@ -425,95 +425,6 @@ def main() -> None:
             plt.colorbar(image)
             plt.savefig(save_path/f"sim_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
 
-
-
-    #---------------------------------------------------------------------------
-    # SIM: find limiting epistemic errors / CDFs
-    # print(80*"-")
-    # print("SIM: Extracting limiting CDFs from epistemic sampling of simulation...")
-
-    # # print("Sorting displacement data for ecdfs")
-    # # sim_disp = np.sort(sim_disp,axis=1)
-    # # print("ECDF sort complete.")
-    # # print()
-
-    # print("Summing along aleatory axis and finding max/min...")
-    # sim_limits = np.sum(sim_disp,axis=1)
-    # sim_cdf_max_e = np.argmax(sim_limits,axis=0)
-    # sim_cdf_min_e = np.argmin(sim_limits,axis=0)
-
-    # print(f"{sim_disp.shape=}")
-    # print(f"{sim_limits.shape=}")
-    # print(f"{sim_cdf_max_e.shape=}")
-    # print(f"{sim_cdf_min_e.shape=}")
-    # print()
-    # print(f"{sim_cdf_max_e[0,0]=}")
-    # print(f"{sim_cdf_min_e[0,0]=}")
-    # print()
-
-    # # Find a couple of points of interest for each component
-    # sim_cent_coords = (np.max(sim_coords,axis=0) + np.min(sim_coords,axis=0))/2
-    # print("SIM COORD LIMITS:")
-    # print(f"{np.max(sim_coords,axis=0)=}")
-    # print(f"{np.min(sim_coords,axis=0)=}")
-    # print(f"{sim_cent_coords=}")
-    # print(f"{np.mean(sim_coords,axis=0)=}")
-    # print()
-
-    # # NOTE: exp coords are a function of the frame
-    # exp_coords_avg = np.mean(exp_coords,axis=0)
-    # exp_cent_coords = (np.max(exp_coords_avg,axis=0) + np.min(exp_coords_avg,axis=0))/2
-    # print("EXP COORD LIMITS:")
-    # print(f"{np.max(exp_coords_avg,axis=0)=}")
-    # print(f"{np.min(exp_coords_avg,axis=0)=}")
-    # print(f"{exp_cent_coords=}")
-    # print(f"{np.mean(exp_coords_avg,axis=0)=}")
-    # print()
-
-    # find_point_0 = np.array([24,-16.5]) # mm
-    # find_point_1 = np.array([0,-16.5])  # mm
-    # cdf_inds_0 = vm.find_nearest_points(sim_coords,find_point_0,k=5)
-    # cdf_inds_1 = vm.find_nearest_points(sim_coords,find_point_1,k=5)
-
-    # print("Extracted points for plotting sim cdfs.")
-    # print(f"{cdf_inds_0=}")
-    # print(f"{cdf_inds_1=}")
-    # print(f"{sim_coords[cdf_inds_0[0],:]=}")
-    # print(f"{sim_coords[cdf_inds_1[0],:]=}")
-
-    # disp_inds = np.zeros((3,),dtype=np.uintp)
-    # # Max disp_x at corners of the block
-    # disp_inds[xx] = cdf_inds_0[0]
-    # # max disp y,z in the centre top of the block
-    # disp_inds[yy] = cdf_inds_1[0]
-    # disp_inds[zz] = cdf_inds_1[0]
-
-    # print("Plotting all sim cdfs and limit cdfs for key points")
-    # for cc in comps:
-    #     pp = disp_inds[cc]
-    #     fig, axs=plt.subplots(1,1,
-    #                         figsize=plot_opts.single_fig_size_landscape,
-    #                         layout="constrained")
-    #     fig.set_dpi(plot_opts.resolution)
-
-    #     for ee in range(sim_disp.shape[0]):
-    #         axs.ecdf(sim_disp[ee,:,pp,cc],color='tab:blue',linewidth=plot_opts.lw)
-
-    #     max_e = sim_cdf_max_e[pp,cc]
-    #     axs.ecdf(sim_disp[max_e,:,pp,cc],ls="--",color='black',linewidth=plot_opts.lw)
-
-    #     min_e = sim_cdf_min_e[pp,cc]
-    #     axs.ecdf(sim_disp[min_e,:,pp,cc],ls="--",color='black',linewidth=plot_opts.lw)
-
-    #     this_coord = sim_coords[disp_inds[cc],:]
-    #     title_str = f"(x,y)=({this_coord[0]:.2f},{this_coord[1]:.2f})"
-    #     ax_str = f"sim. disp. {DISP_COMP_STRS[cc]} [mm]"
-    #     axs.set_title(title_str,fontsize=plot_opts.font_head_size)
-    #     axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
-    #     axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-
-    #     plt.savefig(save_path/f"sim_disp_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
-
     #---------------------------------------------------------------------------
     # Average fields from experiment and simulation to plot the difference
     print("\nAveraging experiment steady state and simulation for full-field comparison.")
@@ -566,13 +477,15 @@ def main() -> None:
         print("Plotting avg. disp. maps and sim-exp diff.")
 
         for ii,ss in zip(ax_inds,ax_strs):
-            (fig,ax) = vm.plot_avg_disp_maps_nosave(
+            field_str = f"disp. {ss} [mm]"
+
+            (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
                 sim_disp_avg,
                 exp_coords_avg,
                 exp_disp_avg,
                 ii,
-                ss,
+                field_str,
                 scale_cbar=True,
             )
 
@@ -580,13 +493,13 @@ def main() -> None:
                          / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_disp_{ss}_comp.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-            (fig,ax) = vm.plot_avg_disp_maps_nosave(
+            (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
                 sim_disp_avg,
                 exp_coords_avg,
                 exp_disp_avg,
                 ii,
-                ss,
+                field_str,
                 scale_cbar=False
             )
 
@@ -610,12 +523,10 @@ def main() -> None:
     x_vec = np.arange(sim_x_min,sim_x_max,step)
     y_vec = np.arange(sim_y_min,sim_y_max,step)
     (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
-    grid_shape = x_grid.shape
-    grid_pts = x_grid.size
 
     FORCE_INTERP_COMMON = False
     sim_disp_common_path = temp_path / f"sim_disp_common_{SIM_TAG}.npy"
-    exp_disp_common_path = temp_path / f"exp{EXP_IND}_disp_common_{SIM_TAG}.npy"
+    exp_disp_common_path = temp_path / f"exp{EXP_IND}_disp_common.npy"
 
     # Need to reshape simulation data to collapse epis and alea errors then
     # interpolate and then reshape back.

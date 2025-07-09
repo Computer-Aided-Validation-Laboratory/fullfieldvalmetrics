@@ -442,12 +442,12 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
     fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
-def plot_avg_disp_maps_nosave(sim_coords: np.ndarray,
+def plot_avg_field_maps_nosave(sim_coords: np.ndarray,
                        sim_disp_avg: np.ndarray,
                        exp_coords_avg: np.ndarray,
                        exp_disp_avg: np.ndarray,
                        ax_ind: int,
-                       ax_str: str,
+                       field_str: str,
                        scale_cbar: bool = True,
                        ) -> tuple[Any,Any]:
 
@@ -493,7 +493,7 @@ def plot_avg_disp_maps_nosave(sim_coords: np.ndarray,
         image = ax[0].imshow(exp_disp_grid_avg,
                             extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
 
-    ax[0].set_title(f"Exp. Avg. \ndisp. {ax_str} [mm]",
+    ax[0].set_title(f"Exp. Avg. \n{field_str}",
                     fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
     ax[0].set_xlabel("x [mm]",
                 fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
@@ -511,7 +511,7 @@ def plot_avg_disp_maps_nosave(sim_coords: np.ndarray,
         image = ax[1].imshow(sim_disp_grid_avg,
                             extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
 
-    ax[1].set_title(f"Sim. Avg.\ndisp. {ax_str} [mm]",
+    ax[1].set_title(f"Sim. Avg.\n{field_str}",
                     fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
     ax[1].set_xlabel("x [mm]",
                 fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)
@@ -523,7 +523,7 @@ def plot_avg_disp_maps_nosave(sim_coords: np.ndarray,
     image = ax[2].imshow(disp_diff_avg,
                          extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
                          cmap="RdBu")
-    ax[2].set_title(f"(Sim. - Exp.)\ndisp. {ax_str} [mm]",
+    ax[2].set_title(f"(Sim. - Exp.)\n{field_str}",
                     fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
     ax[2].set_xlabel("x [mm]",
                 fontsize=plot_opts.font_ax_size, fontname=plot_opts.font_name)

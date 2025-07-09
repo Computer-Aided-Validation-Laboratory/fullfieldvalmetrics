@@ -566,7 +566,7 @@ def main() -> None:
         print("Plotting avg. disp. maps and sim-exp diff.")
 
         for ii,ss in zip(ax_inds,ax_strs):
-            (fig,ax) = vm.plot_avg_disp_maps_nosave(
+            (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
                 sim_disp_avg,
                 exp_coords_avg,
@@ -580,7 +580,7 @@ def main() -> None:
                          / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_disp_{ss}_comp.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-            (fig,ax) = vm.plot_avg_disp_maps_nosave(
+            (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
                 sim_disp_avg,
                 exp_coords_avg,
