@@ -23,16 +23,20 @@ def main() -> None:
     PARA: int = 8
 
     #===========================================================================
-    EXP_IND: int = 0
+    EXP_IND: int = 2
     #===========================================================================
 
     comps = (0,1,2)
     (xx,yy,zz) = (0,1,2)
 
+    ax_inds = (0,1,2)
+    ax_strs = ("x","y","z")
+
     plot_opts = pyvale.PlotOptsGeneral()
     fig_ind: int = 0
     exp_c: str = "tab:orange"
     sim_c: str = "tab:blue"
+    mavm_c: str = "tab:green"
 
     DISP_COMP_STRS = ("x","y","z")
     STRAIN_COMP_STRS = ("xx","yy","xy")
@@ -381,7 +385,7 @@ def main() -> None:
     sim_y_min = np.min(sim_coords[:,1])
     sim_y_max = np.max(sim_coords[:,1])
 
-    PLOT_DISP_SIMEXP = False
+    PLOT_DISP_SIMEXP = True
 
     if PLOT_DISP_SIMEXP:
         # Frame to plot from the experiment
@@ -408,9 +412,8 @@ def main() -> None:
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
             plt.title(f"Exp Data: disp. {DISP_COMP_STRS[aa]}")
             plt.colorbar(image)
-            plt.savefig(
-                save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
-
+            save_fig_path = (save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
         for aa in range(0,3):
             sim_disp_grid = griddata(sim_coords[:,0:2],
@@ -423,7 +426,9 @@ def main() -> None:
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
             plt.title(f"Sim Data: disp. {DISP_COMP_STRS[aa]}")
             plt.colorbar(image)
-            plt.savefig(save_path/f"sim_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
+
+            save_fig_path = (save_path/f"sim_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     #---------------------------------------------------------------------------
     # Average fields from experiment and simulation to plot the difference
@@ -468,10 +473,9 @@ def main() -> None:
     print(f"{num_elem_y.shape=}")
     print()
 
-    ax_inds = (0,1,2)
-    ax_strs = ("x","y","z")
 
-    PLOT_AVG_DISP_MAPS = False
+
+    PLOT_AVG_DISP_MAPS = True
 
     if PLOT_AVG_DISP_MAPS:
         print("Plotting avg. disp. maps and sim-exp diff.")
@@ -490,7 +494,7 @@ def main() -> None:
             )
 
             save_fig_path = (save_path
-                         / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_disp_{ss}_comp.png")
+                         / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_dispavg_{ss}_comp.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
             (fig,ax) = vm.plot_avg_field_maps_nosave(
@@ -504,7 +508,7 @@ def main() -> None:
             )
 
             save_fig_path = (save_path
-                / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_disp_{ss}_comp_cbarfree.png")
+                / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_dispavg_{ss}_comp_cbarfree.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -598,7 +602,7 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM-EXP: Calculate mavm at a few key points
     print(80*"-")
-    print("SIM-EXP: calculating mavm at key points")
+    print("SIM-EXP: finding key points in fields and plotting cdfs")
 
     find_point_x = np.array([24.0,-16.0]) # mm
     find_point_yz = np.array([0.0,-16.0])  # mm
@@ -620,19 +624,20 @@ def main() -> None:
 
     print("Summing along aleatory axis and finding max/min...")
     sim_limits = np.sum(sim_disp_common,axis=1)
-    sim_cdf_max_e = np.argmax(sim_limits,axis=0)
-    sim_cdf_min_e = np.argmin(sim_limits,axis=0)
+    sim_cdf_eind = {}
+    sim_cdf_eind['max'] = np.argmax(sim_limits,axis=0)
+    sim_cdf_eind['min'] = np.argmin(sim_limits,axis=0)
 
     print(f"{sim_disp_common.shape=}")
     print(f"{sim_limits.shape=}")
-    print(f"{sim_cdf_max_e.shape=}")
-    print(f"{sim_cdf_min_e.shape=}")
+    print(f"{sim_cdf_eind['max'].shape=}")
+    print(f"{sim_cdf_eind['min'].shape=}")
     print()
-    print(f"{sim_cdf_max_e[0,0]=}")
-    print(f"{sim_cdf_min_e[0,0]=}")
+    print(f"{sim_cdf_eind['max'][0,0]=}")
+    print(f"{sim_cdf_eind['min'][0,0]=}")
     print()
 
-    PLOT_COMMON_PT_CDFS = False
+    PLOT_COMMON_PT_CDFS = True
 
     if PLOT_COMMON_PT_CDFS:
         print("Plotting all sim cdfs and limit cdfs for key points on common coords...")
@@ -647,23 +652,25 @@ def main() -> None:
                 axs.ecdf(sim_disp_common[ee,:,pp,cc]
                         ,color='tab:blue',linewidth=plot_opts.lw)
 
-            max_e = sim_cdf_max_e[pp,cc]
-            axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+            e_ind = sim_cdf_eind['max'][pp,cc]
+            axs.ecdf(sim_disp_common[e_ind,:,pp,cc]
                     ,ls="--",color='black',linewidth=plot_opts.lw)
 
-            min_e = sim_cdf_min_e[pp,cc]
+            min_e = sim_cdf_eind['min'][pp,cc]
             axs.ecdf(sim_disp_common[min_e,:,pp,cc]
                     ,ls="--",color='black',linewidth=plot_opts.lw)
 
             this_coord = coords_common[mavm_inds[cc],:]
-            title_str = f"(x,y)=({this_coord[0]:.2f},{this_coord[1]:.2f})"
-            ax_str = f"sim. disp. {DISP_COMP_STRS[cc]} [mm]"
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            ax_str = f"sim disp. {DISP_COMP_STRS[cc]} [mm]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-            axs.legend(loc="upper left",fontsize=6)
+            #axs.legend(loc="upper left",fontsize=6)
 
-            plt.savefig(save_path/f"sim_disp_common_{DISP_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
+            save_fig_path = (save_path/f"sim_dispcom_{DISP_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
 
         print("Plotting all sim-exp comparison cdfs for key points on common coords...")
         for cc in comps:
@@ -673,13 +680,13 @@ def main() -> None:
                                 layout="constrained")
             fig.set_dpi(plot_opts.resolution)
 
-
-            max_e = sim_cdf_max_e[pp,cc]
+            # SIM CDFS
+            max_e = sim_cdf_eind['max'][pp,cc]
             axs.ecdf(sim_disp_common[max_e,:,pp,cc]
                     ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                     label="sim.")
 
-            min_e = sim_cdf_min_e[pp,cc]
+            min_e = sim_cdf_eind['min'][pp,cc]
             axs.ecdf(sim_disp_common[min_e,:,pp,cc]
                     ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
@@ -691,42 +698,211 @@ def main() -> None:
                             color=sim_c,
                             alpha=0.2)
 
+            # EXP CDF
             axs.ecdf(exp_disp_common[:,pp,cc]
                     ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                     label="exp.")
 
             this_coord = coords_common[mavm_inds[cc],:]
-            title_str = f"(x,y)=({this_coord[0]:.2f},{this_coord[1]:.2f})"
-            ax_str = f"sim. disp. {DISP_COMP_STRS[cc]} [mm]"
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
             axs.legend(loc="upper left",fontsize=6)
 
-            plt.savefig(save_path/f"disp_common_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+            save_fig_path = (save_path
+                        /f"exp{DIC_PULSES[EXP_IND]}_dispcom_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
+    # plt.close("all")
+
+
+    #---------------------------------------------------------------------------
+    # Calculate MAVM at key points
+
+    print(80*"-")
+    print("SIM-EXP: Calculating MAVM at key points")
+
+    sim_lim_keys = ("min","max")
+    mavm = {}
+    mavm_lims = {}
+    for cc,aa in enumerate(ax_strs):
+
+        this_mavm = {}
+        this_mavm_lim = {}
+
+        pp = mavm_inds[cc]
+
+        dplus_cdf_sum = None
+        dminus_cdf_sum = None
+
+        for kk in sim_lim_keys:
+            e_ind = sim_cdf_eind[kk][pp,cc]
+            this_mavm[kk] = vm.mavm(sim_disp_common[e_ind,:,pp,cc],
+                                    exp_disp_common[:,pp,cc])
+
+            check_upper = np.sum(this_mavm[kk]["F_"] + this_mavm[kk]["d+"])
+            check_lower = np.sum(this_mavm[kk]["F_"] - this_mavm[kk]["d-"])
+
+            if dplus_cdf_sum is None:
+                dplus_cdf_sum = check_upper
+                this_mavm_lim["max"] = this_mavm[kk]
+            else:
+                if check_upper > dplus_cdf_sum:
+                    dplus_cdf_sum = check_upper
+                    this_mavm_lim["max"] = this_mavm[kk]
+
+            if dminus_cdf_sum is None:
+                dminus_cdf_sum = check_lower
+                this_mavm_lim["min"] = this_mavm[kk]
+            else:
+                if check_lower < dminus_cdf_sum:
+                    dminus_cdf_sum = dminus_cdf_sum
+                    this_mavm_lim["min"] = this_mavm[kk]
+
+        mavm_lims[aa] = this_mavm_lim
+        mavm[aa] = this_mavm
+
+
+    #print(f"{mavm['x']['max']=}")
+    # print()
+    # print(mavm_lims.keys())
+    # print(mavm_lims["x"].keys())
+    # print(mavm_lims["x"]["max"].keys())
     plt.close("all")
 
+    print("Plotting MAVM at key points")
+    for cc,aa in enumerate(ax_strs):
+        pp = mavm_inds[cc]
+
+        fig,axs=plt.subplots(1,1,
+                    figsize=plot_opts.single_fig_size_landscape,
+                    layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        # SIM CDFS
+        max_e = sim_cdf_eind['max'][pp,cc]
+        axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                label="sim.")
+
+        min_e = sim_cdf_eind['min'][pp,cc]
+        axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+        sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+        axs.fill_betweenx(sim_cdf_high.probabilities,
+                        sim_cdf_low .quantiles,
+                        sim_cdf_high.quantiles,
+                        color=sim_c,
+                        alpha=0.2)
+
+        # EXP CDF
+        axs.ecdf(exp_disp_common[:,pp,cc]
+                ,ls="-",color=exp_c,linewidth=plot_opts.lw,
+                label="exp.")
+
+        mavm_c = "tab:red"
+        axs.plot(mavm[aa]["min"]["F_"] - mavm[aa]["min"]["d-"],
+                 mavm[aa]["min"]["F_Y"], label="min, d-",
+                 ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+        axs.plot(mavm[aa]["min"]["F_"] + mavm[aa]["min"]["d+"],
+                 mavm[aa]["min"]["F_Y"], label="min, d+",
+                 ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+        mavm_c = "tab:green"
+        axs.plot(mavm[aa]["max"]["F_"] - mavm[aa]["max"]["d-"],
+                 mavm[aa]["max"]["F_Y"], label="max, d-",
+                 ls="--",color= mavm_c,linewidth=plot_opts.lw*1.2)
+
+        axs.plot(mavm[aa]["max"]["F_"] + mavm[aa]["max"]["d+"],
+                 mavm[aa]["max"]["F_Y"], label="max, d+",
+                 ls="-",color= mavm_c,linewidth=plot_opts.lw*1.2)
+
+        print()
+        print(80*"=")
+        print(f"{aa=}")
+        print(f"{mavm[aa]['min']['d-']=}")
+        print(f"{mavm[aa]['min']['d+']=}")
+        print(f"{mavm[aa]['max']['d-']=}")
+        print(f"{mavm[aa]['max']['d+']=}")
+        print(80*"=")
+        print()
+
+        this_coord = coords_common[mavm_inds[cc],:]
+        title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+        ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+        axs.legend(loc="upper left",fontsize=6)
+
+        save_fig_path = (save_path
+            /f"exp{DIC_PULSES[EXP_IND]}_dispcom_{DISP_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
-    plt.show()
+    # TODO
+    print("Plotting mavm limits...")
+    for cc,aa in enumerate(ax_strs):
+        pp = mavm_inds[cc]
 
-    return
+        fig,axs=plt.subplots(1,1,
+                    figsize=plot_opts.single_fig_size_landscape,
+                    layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
 
-    ax_str = "x"
-    mavm_res = {}
-    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],xx],
-                               exp_disp_common[:,mavm_inds[ax_str][0],xx])
-    ax_str = "y"
-    mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],yy],
-                               exp_disp_common[:,mavm_inds[ax_str][0],yy])
+        # SIM CDFS
+        max_e = sim_cdf_eind['max'][pp,cc]
+        axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                label="sim.")
 
+        min_e = sim_cdf_eind['min'][pp,cc]
+        axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
+        sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+        axs.fill_betweenx(sim_cdf_high.probabilities,
+                        sim_cdf_low .quantiles,
+                        sim_cdf_high.quantiles,
+                        color=sim_c,
+                        alpha=0.2)
+
+        # MAVM
+        mavm_c = "black"
+        axs.plot(mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
+                 mavm_lims[aa]["min"]["F_Y"], label="d-",
+                 ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+        axs.plot(mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+                 mavm_lims[aa]["max"]["F_Y"], label="d+",
+                 ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+        axs.fill_betweenx(mavm_lims[aa]["max"]["F_Y"],
+                          mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
+                          mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+                          color=mavm_c,
+                          alpha=0.2)
+
+        this_coord = coords_common[mavm_inds[cc],:]
+        title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+        ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+        axs.legend(loc="upper left",fontsize=6)
+
+        save_fig_path = (save_path
+            / f"exp{DIC_PULSES[EXP_IND]}_dispcom_{DISP_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     #---------------------------------------------------------------------------
     print(80*"-")
     print("COMPLETE.")
-    plt.show()
+    #plt.show()
 
 
 
