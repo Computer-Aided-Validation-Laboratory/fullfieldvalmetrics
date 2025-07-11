@@ -838,7 +838,6 @@ def main() -> None:
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
-    # TODO
     print("Plotting mavm limits...")
     for cc,aa in enumerate(ax_strs):
         pp = mavm_inds[cc]

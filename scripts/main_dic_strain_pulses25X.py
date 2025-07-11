@@ -23,7 +23,7 @@ def main() -> None:
     PARA: int = 8
 
     #===========================================================================
-    EXP_IND: int = 2
+    EXP_IND: int = 1
     #===========================================================================
 
     comps = (0,1,2)
@@ -263,46 +263,6 @@ def main() -> None:
     print()
 
     # TODO: work out how to do the tensor transformation for the experimental
-    # data
-    # #---------------------------------------------------------------------------
-    # # EXP: Transform coords, required for each frame
-    # # NOTE: exp field arrays have shape=(n_frames,n_pts,n_comps)
-
-    # print("Transforming experimental coords...")
-    # print(f"{exp_coords.shape=}")
-
-    # exp_coord_t = np.zeros_like(exp_coords)
-    # exp_disp_t = np.zeros_like(exp_disp)
-
-    # for ff in range(0,exp_disp.shape[0]):
-    #     exp_to_world_mat = vm.fit_coord_matrix(exp_coords[ff,:,:])
-    #     world_to_exp_mat = np.linalg.inv(exp_to_world_mat)
-
-    #     exp_with_w = np.hstack([exp_coords[ff,:,:],
-    #                             np.ones([exp_coords.shape[1],1])])
-
-    #     exp_coord_temp = np.matmul(world_to_exp_mat,exp_with_w.T).T
-    #     exp_coord_t[ff,:,:] = exp_coord_temp[:,:-1]
-
-    #     # Flip the y coord for the experiment?
-    #     exp_coord_t[ff,:,1] = -exp_coord_t[ff,:,1]
-
-    #     exp_disp_t[ff,:,:] = np.matmul(world_to_exp_mat[:-1,:-1],exp_disp[ff,:,:].T).T
-    #     rigid_disp = np.atleast_2d(np.mean(exp_disp_t[ff,:,:],axis=0)).T
-    #     rigid_disp = np.tile(rigid_disp,exp_disp.shape[1]).T
-    #     exp_disp_t[ff,:,:] -= rigid_disp
-
-    # exp_coords = exp_coord_t
-    # exp_disp = exp_disp_t
-    # del exp_coord_t, exp_disp_t
-
-    # print("Coord transforms complete.")
-    # print()
-
-    # print("After transformation:")
-    # print(f"{exp_coords.shape=}")
-    # print(f"{exp_disp.shape=}")
-    # print()
 
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
@@ -369,13 +329,13 @@ def main() -> None:
         (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
         for aa in range(0,3):
-            exp_disp_grid = griddata(exp_coords[exp_frame,:,0:2],
+            exp_strain_grid = griddata(exp_coords[exp_frame,:,0:2],
                                      exp_strain[exp_frame,:,aa],
                                      (x_grid,y_grid),
                                      method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(exp_disp_grid,
+            image = ax.imshow(exp_strain_grid,
                               extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
             plt.title(f"exp. strain, e_{STRAIN_COMP_STRS[aa]} [-]")
@@ -385,13 +345,13 @@ def main() -> None:
 
 
         for aa in range(0,3):
-            sim_disp_grid = griddata(sim_coords[:,0:2],
+            sim_strain_grid = griddata(sim_coords[:,0:2],
                                      sim_strain[sim_plot_epis,sim_plot_alea,:,aa],
                                      (x_grid,y_grid),
                                      method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(sim_disp_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+            image = ax.imshow(sim_strain_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
             plt.title(f"sim. strain, e_{STRAIN_COMP_STRS[aa]} [-]")
             plt.colorbar(image)
@@ -493,8 +453,8 @@ def main() -> None:
     (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
     FORCE_INTERP_COMMON = False
-    sim_disp_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
-    exp_disp_common_path = temp_path / f"exp{EXP_IND}_strain_common.npy"
+    sim_strain_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
+    exp_strain_common_path = temp_path / f"exp{EXP_IND}_strain_common.npy"
 
     # Need to reshape simulation data to collapse epis and alea errors then
     # interpolate and then reshape back.
@@ -505,7 +465,7 @@ def main() -> None:
     print(f"{sim_strain.shape=}")
     print()
 
-    if (FORCE_INTERP_COMMON or not sim_disp_common_path.is_file()):
+    if (FORCE_INTERP_COMMON or not sim_strain_common_path.is_file()):
 
         print("Interpolating simulation strain to common grid.")
         start_time = time.perf_counter()
@@ -524,18 +484,18 @@ def main() -> None:
         print()
 
         print("Saving interpolated common grid data in npy format for speed.")
-        np.save(sim_disp_common_path,sim_strain_common)
+        np.save(sim_strain_common_path,sim_strain_common)
 
     else:
-        print("Loading pre-interpolated sim disp data for speed.")
-        sim_strain_common = np.load(sim_disp_common_path)
+        print("Loading pre-interpolated sim strain data for speed.")
+        sim_strain_common = np.load(sim_strain_common_path)
 
 
-    if (FORCE_INTERP_COMMON or not exp_disp_common_path.is_file()):
+    if (FORCE_INTERP_COMMON or not exp_strain_common_path.is_file()):
 
         print("Interpolating experiment strain to common grid.")
         start_time = time.perf_counter()
-        exp_disp_common = vm.interp_exp_to_common_grid(exp_coords,
+        exp_strain_common = vm.interp_exp_to_common_grid(exp_coords,
                                                        exp_strain,
                                                        x_grid,
                                                        y_grid,
@@ -544,11 +504,11 @@ def main() -> None:
         print(f"Interpolating exp. strain took: {end_time-start_time}s\n")
 
         print("Saving interpolated common grid data in npy format for speed.")
-        np.save(exp_disp_common_path,exp_disp_common)
+        np.save(exp_strain_common_path,exp_strain_common)
 
     else:
-        print("Loading pre-interpolated exp disp data for speed.")
-        exp_disp_common = np.load(exp_disp_common_path)
+        print("Loading pre-interpolated exp strain data for speed.")
+        exp_strain_common = np.load(exp_strain_common_path)
 
 
     coords_common = np.vstack((x_grid.flatten(),y_grid.flatten())).T
@@ -556,148 +516,319 @@ def main() -> None:
     print()
     print("SIM-EXP: Interpolated data shapes:")
     print(f"{sim_strain_common.shape=}")
-    print(f"{exp_disp_common.shape=}")
+    print(f"{exp_strain_common.shape=}")
     print(f"{coords_common.shape=}")
     print()
 
-    # Remove coords and disp to prevent errors
+    # Remove coords and strain to prevent errors
     del exp_coords, exp_strain, sim_coords, sim_strain
 
-    # #---------------------------------------------------------------------------
-    # # SIM-EXP: Calculate mavm at a few key points
-    # print(80*"-")
-    # print("SIM-EXP: calculating mavm at key points")
 
-    # find_point_x = np.array([24.0,-16.0]) # mm
-    # find_point_yz = np.array([0.0,-16.0])  # mm
+    #---------------------------------------------------------------------------
+    # SIM-EXP: Calculate mavm at a few key points
+    print(80*"-")
+    print("SIM-EXP: finding key points in fields and plotting cdfs")
 
-    # mavm_inds = np.zeros((3,),dtype=np.uintp)
-    # mavm_inds[xx] = vm.find_nearest_points(coords_common,find_point_x,k=3)[0]
-    # mavm_inds[yy] = vm.find_nearest_points(coords_common,find_point_yz,k=3)[0]
-    # mavm_inds[zz] = mavm_inds[yy]
+    find_point_x = np.array([24.0,-16.0]) # mm
+    find_point_yz = np.array([0.0,-16.0])  # mm
 
-
-    # print(80*"-")
-    # print(f"{mavm_inds=}")
-    # print()
-    # print(f"{coords_common[mavm_inds[xx],:]=}")
-    # print(f"{coords_common[mavm_inds[yy],:]=}")
-    # print(f"{coords_common[mavm_inds[zz],:]=}")
-    # print(80*"-")
-    # print()
-
-    # print("Summing along aleatory axis and finding max/min...")
-    # sim_limits = np.sum(sim_disp_common,axis=1)
-    # sim_cdf_max_e = np.argmax(sim_limits,axis=0)
-    # sim_cdf_min_e = np.argmin(sim_limits,axis=0)
-
-    # print(f"{sim_disp_common.shape=}")
-    # print(f"{sim_limits.shape=}")
-    # print(f"{sim_cdf_max_e.shape=}")
-    # print(f"{sim_cdf_min_e.shape=}")
-    # print()
-    # print(f"{sim_cdf_max_e[0,0]=}")
-    # print(f"{sim_cdf_min_e[0,0]=}")
-    # print()
-
-    # PLOT_COMMON_PT_CDFS = False
-
-    # if PLOT_COMMON_PT_CDFS:
-    #     print("Plotting all sim cdfs and limit cdfs for key points on common coords...")
-    #     for cc in comps:
-    #         pp = mavm_inds[cc]
-    #         fig, axs=plt.subplots(1,1,
-    #                             figsize=plot_opts.single_fig_size_landscape,
-    #                             layout="constrained")
-    #         fig.set_dpi(plot_opts.resolution)
-
-    #         for ee in range(sim_disp_common.shape[0]):
-    #             axs.ecdf(sim_disp_common[ee,:,pp,cc]
-    #                     ,color='tab:blue',linewidth=plot_opts.lw)
-
-    #         max_e = sim_cdf_max_e[pp,cc]
-    #         axs.ecdf(sim_disp_common[max_e,:,pp,cc]
-    #                 ,ls="--",color='black',linewidth=plot_opts.lw)
-
-    #         min_e = sim_cdf_min_e[pp,cc]
-    #         axs.ecdf(sim_disp_common[min_e,:,pp,cc]
-    #                 ,ls="--",color='black',linewidth=plot_opts.lw)
-
-    #         this_coord = coords_common[mavm_inds[cc],:]
-    #         title_str = f"(x,y)=({this_coord[0]:.2f},{this_coord[1]:.2f})"
-    #         ax_str = f"sim. disp. {DISP_COMP_STRS[cc]} [mm]"
-    #         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
-    #         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
-    #         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-    #         axs.legend(loc="upper left",fontsize=6)
-
-    #         plt.savefig(save_path/f"sim_disp_common_{DISP_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
-
-    #     print("Plotting all sim-exp comparison cdfs for key points on common coords...")
-    #     for cc in comps:
-    #         pp = mavm_inds[cc]
-    #         fig, axs=plt.subplots(1,1,
-    #                             figsize=plot_opts.single_fig_size_landscape,
-    #                             layout="constrained")
-    #         fig.set_dpi(plot_opts.resolution)
+    mavm_inds = np.zeros((3,),dtype=np.uintp)
+    mavm_inds[xx] = vm.find_nearest_points(coords_common,find_point_x,k=3)[0]
+    mavm_inds[yy] = vm.find_nearest_points(coords_common,find_point_yz,k=3)[0]
+    mavm_inds[zz] = mavm_inds[yy]
 
 
-    #         max_e = sim_cdf_max_e[pp,cc]
-    #         axs.ecdf(sim_disp_common[max_e,:,pp,cc]
-    #                 ,ls="--",color=sim_c,linewidth=plot_opts.lw,
-    #                 label="sim.")
+    print(80*"-")
+    print(f"{mavm_inds=}")
+    print()
+    print(f"{coords_common[mavm_inds[xx],:]=}")
+    print(f"{coords_common[mavm_inds[yy],:]=}")
+    print(f"{coords_common[mavm_inds[zz],:]=}")
+    print(80*"-")
+    print()
 
-    #         min_e = sim_cdf_min_e[pp,cc]
-    #         axs.ecdf(sim_disp_common[min_e,:,pp,cc]
-    #                 ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+    print("Summing along aleatory axis and finding max/min...")
+    sim_limits = np.sum(sim_strain_common,axis=1)
+    sim_cdf_eind = {}
+    sim_cdf_eind['max'] = np.argmax(sim_limits,axis=0)
+    sim_cdf_eind['min'] = np.argmin(sim_limits,axis=0)
 
-    #         sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-    #         sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
-    #         axs.fill_betweenx(sim_cdf_high.probabilities,
-    #                         sim_cdf_low .quantiles,
-    #                         sim_cdf_high.quantiles,
-    #                         color=sim_c,
-    #                         alpha=0.2)
+    print(f"{sim_strain_common.shape=}")
+    print(f"{sim_limits.shape=}")
+    print(f"{sim_cdf_eind['max'].shape=}")
+    print(f"{sim_cdf_eind['min'].shape=}")
+    print()
+    print(f"{sim_cdf_eind['max'][0,0]=}")
+    print(f"{sim_cdf_eind['min'][0,0]=}")
+    print()
 
-    #         axs.ecdf(exp_disp_common[:,pp,cc]
-    #                 ,ls="-",color=exp_c,linewidth=plot_opts.lw,
-    #                 label="exp.")
+    PLOT_COMMON_PT_CDFS = True
 
-    #         this_coord = coords_common[mavm_inds[cc],:]
-    #         title_str = f"(x,y)=({this_coord[0]:.2f},{this_coord[1]:.2f})"
-    #         ax_str = f"sim. disp. {DISP_COMP_STRS[cc]} [mm]"
-    #         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
-    #         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
-    #         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-    #         axs.legend(loc="upper left",fontsize=6)
+    if PLOT_COMMON_PT_CDFS:
+        print("Plotting all sim cdfs and limit cdfs for key points on common coords...")
+        for cc in comps:
+            pp = mavm_inds[cc]
+            fig, axs=plt.subplots(1,1,
+                                figsize=plot_opts.single_fig_size_landscape,
+                                layout="constrained")
+            fig.set_dpi(plot_opts.resolution)
 
-    #         plt.savefig(save_path/f"disp_common_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+            for ee in range(sim_strain_common.shape[0]):
+                axs.ecdf(sim_strain_common[ee,:,pp,cc]
+                        ,color='tab:blue',linewidth=plot_opts.lw)
+
+            e_ind = sim_cdf_eind['max'][pp,cc]
+            axs.ecdf(sim_strain_common[e_ind,:,pp,cc]
+                    ,ls="--",color='black',linewidth=plot_opts.lw)
+
+            min_e = sim_cdf_eind['min'][pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                    ,ls="--",color='black',linewidth=plot_opts.lw)
+
+            this_coord = coords_common[mavm_inds[cc],:]
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            ax_str = f"sim strain {STRAIN_COMP_STRS[cc]} [-]"
+            axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+            axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+            axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+            #axs.legend(loc="upper left",fontsize=6)
+
+            save_fig_path = (save_path/f"sim_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
+        print("Plotting all sim-exp comparison cdfs for key points on common coords...")
+        for cc in comps:
+            pp = mavm_inds[cc]
+            fig, axs=plt.subplots(1,1,
+                                figsize=plot_opts.single_fig_size_landscape,
+                                layout="constrained")
+            fig.set_dpi(plot_opts.resolution)
+
+            # SIM CDFS
+            max_e = sim_cdf_eind['max'][pp,cc]
+            axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                    label="sim.")
+
+            min_e = sim_cdf_eind['min'][pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+            sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+            sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+            axs.fill_betweenx(sim_cdf_high.probabilities,
+                            sim_cdf_low .quantiles,
+                            sim_cdf_high.quantiles,
+                            color=sim_c,
+                            alpha=0.2)
+
+            # EXP CDF
+            axs.ecdf(exp_strain_common[:,pp,cc]
+                    ,ls="-",color=exp_c,linewidth=plot_opts.lw,
+                    label="exp.")
+
+            this_coord = coords_common[mavm_inds[cc],:]
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
+            axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+            axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+            axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+            axs.legend(loc="upper left",fontsize=6)
+
+            save_fig_path = (save_path
+                        /f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     # plt.close("all")
 
 
+    #---------------------------------------------------------------------------
+    # Calculate MAVM at key points
 
-    # plt.show()
+    print(80*"-")
+    print("SIM-EXP: Calculating MAVM at key points")
 
-    # return
+    sim_lim_keys = ("min","max")
+    mavm = {}
+    mavm_lims = {}
+    for cc,aa in enumerate(ax_strs):
 
-    # ax_str = "x"
-    # mavm_res = {}
-    # mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],xx],
-    #                            exp_disp_common[:,mavm_inds[ax_str][0],xx])
-    # ax_str = "y"
-    # mavm_res[ax_str] = vm.mavm(sim_disp_common[:,mavm_inds[ax_str][0],yy],
-    #                            exp_disp_common[:,mavm_inds[ax_str][0],yy])
+        this_mavm = {}
+        this_mavm_lim = {}
+
+        pp = mavm_inds[cc]
+
+        dplus_cdf_sum = None
+        dminus_cdf_sum = None
+
+        for kk in sim_lim_keys:
+            e_ind = sim_cdf_eind[kk][pp,cc]
+            this_mavm[kk] = vm.mavm(sim_strain_common[e_ind,:,pp,cc],
+                                    exp_strain_common[:,pp,cc])
+
+            check_upper = np.sum(this_mavm[kk]["F_"] + this_mavm[kk]["d+"])
+            check_lower = np.sum(this_mavm[kk]["F_"] - this_mavm[kk]["d-"])
+
+            if dplus_cdf_sum is None:
+                dplus_cdf_sum = check_upper
+                this_mavm_lim["max"] = this_mavm[kk]
+            else:
+                if check_upper > dplus_cdf_sum:
+                    dplus_cdf_sum = check_upper
+                    this_mavm_lim["max"] = this_mavm[kk]
+
+            if dminus_cdf_sum is None:
+                dminus_cdf_sum = check_lower
+                this_mavm_lim["min"] = this_mavm[kk]
+            else:
+                if check_lower < dminus_cdf_sum:
+                    dminus_cdf_sum = dminus_cdf_sum
+                    this_mavm_lim["min"] = this_mavm[kk]
+
+        mavm_lims[aa] = this_mavm_lim
+        mavm[aa] = this_mavm
+
+
+    #print(f"{mavm['x']['max']=}")
+    # print()
+    # print(mavm_lims.keys())
+    # print(mavm_lims["x"].keys())
+    # print(mavm_lims["x"]["max"].keys())
+    plt.close("all")
+
+    print("Plotting MAVM at key points")
+    for cc,aa in enumerate(ax_strs):
+        pp = mavm_inds[cc]
+
+        fig,axs=plt.subplots(1,1,
+                    figsize=plot_opts.single_fig_size_landscape,
+                    layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        # SIM CDFS
+        max_e = sim_cdf_eind['max'][pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                label="sim.")
+
+        min_e = sim_cdf_eind['min'][pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+        axs.fill_betweenx(sim_cdf_high.probabilities,
+                        sim_cdf_low .quantiles,
+                        sim_cdf_high.quantiles,
+                        color=sim_c,
+                        alpha=0.2)
+
+        # EXP CDF
+        axs.ecdf(exp_strain_common[:,pp,cc]
+                ,ls="-",color=exp_c,linewidth=plot_opts.lw,
+                label="exp.")
+
+        mavm_c = "tab:red"
+        axs.plot(mavm[aa]["min"]["F_"] - mavm[aa]["min"]["d-"],
+                 mavm[aa]["min"]["F_Y"], label="min, d-",
+                 ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+        axs.plot(mavm[aa]["min"]["F_"] + mavm[aa]["min"]["d+"],
+                 mavm[aa]["min"]["F_Y"], label="min, d+",
+                 ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+        mavm_c = "tab:green"
+        axs.plot(mavm[aa]["max"]["F_"] - mavm[aa]["max"]["d-"],
+                 mavm[aa]["max"]["F_Y"], label="max, d-",
+                 ls="--",color= mavm_c,linewidth=plot_opts.lw*1.2)
+
+        axs.plot(mavm[aa]["max"]["F_"] + mavm[aa]["max"]["d+"],
+                 mavm[aa]["max"]["F_Y"], label="max, d+",
+                 ls="-",color= mavm_c,linewidth=plot_opts.lw*1.2)
+
+        print()
+        print(80*"=")
+        print(f"{aa=}")
+        print(f"{mavm[aa]['min']['d-']=}")
+        print(f"{mavm[aa]['min']['d+']=}")
+        print(f"{mavm[aa]['max']['d-']=}")
+        print(f"{mavm[aa]['max']['d+']=}")
+        print(80*"=")
+        print()
+
+        this_coord = coords_common[mavm_inds[cc],:]
+        title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+        axs.legend(loc="upper left",fontsize=6)
+
+        save_fig_path = (save_path
+            /f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
+    print("Plotting mavm limits...")
+    for cc,aa in enumerate(ax_strs):
+        pp = mavm_inds[cc]
+
+        fig,axs=plt.subplots(1,1,
+                    figsize=plot_opts.single_fig_size_landscape,
+                    layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        # SIM CDFS
+        max_e = sim_cdf_eind['max'][pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                label="sim.")
+
+        min_e = sim_cdf_eind['min'][pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+        axs.fill_betweenx(sim_cdf_high.probabilities,
+                        sim_cdf_low .quantiles,
+                        sim_cdf_high.quantiles,
+                        color=sim_c,
+                        alpha=0.2)
+
+        # MAVM
+        mavm_c = "black"
+        axs.plot(mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
+                 mavm_lims[aa]["min"]["F_Y"], label="d-",
+                 ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+        axs.plot(mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+                 mavm_lims[aa]["max"]["F_Y"], label="d+",
+                 ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+        axs.fill_betweenx(mavm_lims[aa]["max"]["F_Y"],
+                          mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
+                          mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+                          color=mavm_c,
+                          alpha=0.2)
+
+        this_coord = coords_common[mavm_inds[cc],:]
+        title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+        axs.legend(loc="upper left",fontsize=6)
+
+        save_fig_path = (save_path
+            / f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
 
-    # #---------------------------------------------------------------------------
-    # print(80*"-")
-    # print("COMPLETE.")
-    # plt.show()
-
-
-
+    #---------------------------------------------------------------------------
+    print(80*"-")
+    print("COMPLETE.")
+    plt.show()
 
 if __name__ == "__main__":
     main()
