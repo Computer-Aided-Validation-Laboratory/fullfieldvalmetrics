@@ -27,7 +27,7 @@ def main() -> None:
 
     SIM_TAG = "red"
     EXP_TAG = "All"
-    DISP_COMP_STRS = ("x","y","z")
+    STRAIN_COMP_STRS = ("xx","yy","xy")
 
     temp_path = Path.cwd() / f"temp_{SIM_TAG}"
     if not temp_path.is_dir():
@@ -41,8 +41,8 @@ def main() -> None:
     # SIM: Load common grid data for the simulation
     print(80*"-")
     print("SIM: loading sim data on common grid")
-    sim_disp_common_path = temp_path / f"sim_disp_common_{SIM_TAG}.npy"
-    sim_disp_common = np.load(sim_disp_common_path)
+    sim_strain_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
+    sim_strain_common = np.load(sim_strain_common_path)
 
     #---------------------------------------------------------------------------
     # EXP: Load common grid data for all 3 experiments
@@ -51,7 +51,7 @@ def main() -> None:
 
     exp_data = []
     for ee in range(3):
-        exp_common_path = temp_path / f"exp{ee}_disp_common.npy"
+        exp_common_path = temp_path / f"exp{ee}_strain_common.npy"
         exp_data.append(np.load(exp_common_path))
 
         print(f"{exp_common_path=}")
@@ -59,9 +59,9 @@ def main() -> None:
         print()
 
 
-    exp_disp_common = np.concatenate(exp_data,axis=0)
+    exp_strain_common = np.concatenate(exp_data,axis=0)
     print("Concatenating experimental data into a single array:")
-    print(f"{exp_disp_common.shape=}")
+    print(f"{exp_strain_common.shape=}")
 
     del exp_data
 
@@ -70,7 +70,7 @@ def main() -> None:
     print(80*"-")
     print("SIM-EXP: loading common coords")
 
-    coord_common_file = temp_path / "coord_common_for_disp.npy"
+    coord_common_file = temp_path / "coord_common_for_strain.npy"
     coords_common = np.load(coord_common_file)
     print(f"{coords_common.shape=}")
     print()
@@ -98,12 +98,12 @@ def main() -> None:
     print()
 
     print("Summing along aleatory axis and finding max/min...")
-    sim_limits = np.sum(sim_disp_common,axis=1)
+    sim_limits = np.sum(sim_strain_common,axis=1)
     sim_cdf_eind = {}
     sim_cdf_eind['max'] = np.argmax(sim_limits,axis=0)
     sim_cdf_eind['min'] = np.argmin(sim_limits,axis=0)
 
-    print(f"{sim_disp_common.shape=}")
+    print(f"{sim_strain_common.shape=}")
     print(f"{sim_limits.shape=}")
     print(f"{sim_cdf_eind['max'].shape=}")
     print(f"{sim_cdf_eind['min'].shape=}")
@@ -123,27 +123,27 @@ def main() -> None:
                                 layout="constrained")
             fig.set_dpi(plot_opts.resolution)
 
-            for ee in range(sim_disp_common.shape[0]):
-                axs.ecdf(sim_disp_common[ee,:,pp,cc]
+            for ee in range(sim_strain_common.shape[0]):
+                axs.ecdf(sim_strain_common[ee,:,pp,cc]
                         ,color='tab:blue',linewidth=plot_opts.lw)
 
             e_ind = sim_cdf_eind['max'][pp,cc]
-            axs.ecdf(sim_disp_common[e_ind,:,pp,cc]
+            axs.ecdf(sim_strain_common[e_ind,:,pp,cc]
                     ,ls="--",color='black',linewidth=plot_opts.lw)
 
             min_e = sim_cdf_eind['min'][pp,cc]
-            axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                     ,ls="--",color='black',linewidth=plot_opts.lw)
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-            ax_str = f"sim disp. {DISP_COMP_STRS[cc]} [mm]"
+            ax_str = f"sim strain e_{STRAIN_COMP_STRS[cc]} [-]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
             #axs.legend(loc="upper left",fontsize=6)
 
-            save_fig_path = (save_path/f"sim_dispcom_{DISP_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
+            save_fig_path = (save_path/f"sim_strainncom_{STRAIN_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -157,16 +157,16 @@ def main() -> None:
 
             # SIM CDFS
             max_e = sim_cdf_eind['max'][pp,cc]
-            axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+            axs.ecdf(sim_strain_common[max_e,:,pp,cc]
                     ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                     label="sim.")
 
             min_e = sim_cdf_eind['min'][pp,cc]
-            axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                     ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-            sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-            sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+            sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+            sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
             axs.fill_betweenx(sim_cdf_high.probabilities,
                             sim_cdf_low .quantiles,
                             sim_cdf_high.quantiles,
@@ -174,20 +174,20 @@ def main() -> None:
                             alpha=0.2)
 
             # EXP CDF
-            axs.ecdf(exp_disp_common[:,pp,cc]
+            axs.ecdf(exp_strain_common[:,pp,cc]
                     ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                     label="exp.")
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-            ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+            ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                        /f"exp{EXP_TAG}_dispcom_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+                        /f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     # plt.close("all")
@@ -214,8 +214,8 @@ def main() -> None:
 
         for kk in sim_lim_keys:
             e_ind = sim_cdf_eind[kk][pp,cc]
-            this_mavm[kk] = vm.mavm(sim_disp_common[e_ind,:,pp,cc],
-                                    exp_disp_common[:,pp,cc])
+            this_mavm[kk] = vm.mavm(sim_strain_common[e_ind,:,pp,cc],
+                                    exp_strain_common[:,pp,cc])
 
             check_upper = np.sum(this_mavm[kk]["F_"] + this_mavm[kk]["d+"])
             check_lower = np.sum(this_mavm[kk]["F_"] - this_mavm[kk]["d-"])
@@ -258,16 +258,16 @@ def main() -> None:
 
         # SIM CDFS
         max_e = sim_cdf_eind['max'][pp,cc]
-        axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                 label="sim.")
 
         min_e = sim_cdf_eind['min'][pp,cc]
-        axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-        sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-        sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
         axs.fill_betweenx(sim_cdf_high.probabilities,
                         sim_cdf_low .quantiles,
                         sim_cdf_high.quantiles,
@@ -275,7 +275,7 @@ def main() -> None:
                         alpha=0.2)
 
         # EXP CDF
-        axs.ecdf(exp_disp_common[:,pp,cc]
+        axs.ecdf(exp_strain_common[:,pp,cc]
                 ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                 label="exp.")
 
@@ -308,14 +308,14 @@ def main() -> None:
 
         this_coord = coords_common[mavm_inds[cc],:]
         title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            /f"exp{EXP_TAG}_dispcom_{DISP_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
+            /f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -330,16 +330,16 @@ def main() -> None:
 
         # SIM CDFS
         max_e = sim_cdf_eind['max'][pp,cc]
-        axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                 label="sim.")
 
         min_e = sim_cdf_eind['min'][pp,cc]
-        axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-        sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-        sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
         axs.fill_betweenx(sim_cdf_high.probabilities,
                         sim_cdf_low .quantiles,
                         sim_cdf_high.quantiles,
@@ -363,14 +363,14 @@ def main() -> None:
 
         this_coord = coords_common[mavm_inds[cc],:]
         title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+        ax_str = f"strain {STRAIN_COMP_STRS[cc]} [-]"
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            / f"exp{EXP_TAG}_dispcom_{DISP_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
+            / f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     #---------------------------------------------------------------------------

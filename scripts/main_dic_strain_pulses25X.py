@@ -524,6 +524,11 @@ def main() -> None:
     del exp_coords, exp_strain, sim_coords, sim_strain
 
 
+    coord_common_file = temp_path / "coord_common_for_strain.npy"
+    if not coord_common_file.is_file():
+        print("Saving common coords")
+        np.save(coord_common_file,coords_common)
+
     #---------------------------------------------------------------------------
     # SIM-EXP: Calculate mavm at a few key points
     print(80*"-")

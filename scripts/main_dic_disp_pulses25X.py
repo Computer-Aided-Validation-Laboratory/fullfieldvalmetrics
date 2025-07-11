@@ -33,7 +33,6 @@ def main() -> None:
     mavm_c: str = "tab:green"
 
     DISP_COMP_STRS = ("x","y","z")
-    STRAIN_COMP_STRS = ("xx","yy","xy")
 
     #---------------------------------------------------------------------------
     # SIM: constants
@@ -47,7 +46,6 @@ def main() -> None:
     #samps_n: int = 5000
     SIM_EPIS_N: int = 50
     SIM_ALEA_N: int = 100
-
 
     #---------------------------------------------------------------------------
     # EXP: constants
@@ -589,6 +587,12 @@ def main() -> None:
     print(f"{exp_disp_common.shape=}")
     print(f"{coords_common.shape=}")
     print()
+
+    coord_common_file = temp_path / "coord_common_for_disp.npy"
+    if not coord_common_file.is_file():
+        print("Saving common coords")
+        np.save(coord_common_file,coords_common)
+
 
     # Remove coords and disp to prevent errors
     del exp_coords, exp_disp, sim_coords, sim_disp
