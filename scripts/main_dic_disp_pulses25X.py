@@ -8,12 +8,6 @@ from scipy.interpolate import griddata
 import pyvale
 import valmetrics as vm
 
-# NOTE
-# - Can calculate difference maps for each epistemic sample so could have
-# hundreds, need to limit this to find the limiting cdfs for each case.
-# - Collapse full-field simulation data to limiting cdfs for each point?
-
-
 def main() -> None:
     print(80*"=")
     print("MAVM Calc for DIC Data: Pulse 25X")
@@ -23,7 +17,7 @@ def main() -> None:
     PARA: int = 8
 
     #===========================================================================
-    EXP_IND: int = 2
+    EXP_IND: int = 0
     #===========================================================================
 
     comps = (0,1,2)

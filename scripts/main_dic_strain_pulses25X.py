@@ -395,7 +395,8 @@ def main() -> None:
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
             plt.title(f"sim. strain, e_{STRAIN_COMP_STRS[aa]} [-]")
             plt.colorbar(image)
-            plt.savefig(save_path/f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
+            save_fig_path = (save_path/f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
 
