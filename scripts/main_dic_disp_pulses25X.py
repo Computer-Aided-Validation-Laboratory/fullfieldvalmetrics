@@ -37,7 +37,7 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM: constants
     SIM_TAG = "red"
-    FE_DIR = Path.cwd()/ "STC_ProbSim_Reduced"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
     # Reduced: 5000 = 100 aleatory x 50 epistemic
@@ -51,9 +51,9 @@ def main() -> None:
     # EXP: constants
     DIC_PULSES = ("253","254","255")
     DIC_DIRS = (
-        Path.cwd() / "STC_Exp_253",
-        Path.cwd() / "STC_Exp_254",
-        Path.cwd() / "STC_Exp_255",
+        Path.cwd() / "STC_Exp_DIC_253",
+        Path.cwd() / "STC_Exp_DIC_254",
+        Path.cwd() / "STC_Exp_DIC_255",
     )
     # NOTE: first 100 frames are averaged to create the steady state reference
     # as frame 0000 the test data starts at frame 0100 and we need to then take

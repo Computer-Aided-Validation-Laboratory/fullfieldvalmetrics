@@ -11,14 +11,14 @@ def main() -> None:
     print("PULSE 25X: Thermocouple MAVM analysis")
     print(80*"=")
 
-    EXP_DIR = Path.cwd() / "STC_Exp_TCs_25X"
-    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X"
+    EXP_DIR = Path.cwd() / "STC_Exp_TCs_211"
+    SIM_DIR = Path.cwd() / "STC_ProbSim_PointSens_211"
 
     sens_ax_labels = (r"Temp. [$^{\circ}C$]",)*10 + (r"Coil RMS Voltage [$V$]",)
     sens_tags = ("Temp",)*10 + ("Volts",)
     sens_num = len(sens_tags)
 
-    save_path = Path.cwd() / "images_pulse25X"
+    save_path = Path.cwd() / "images_pulse211"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -51,7 +51,7 @@ def main() -> None:
                 "TC10":9,
                 "CV":15,}
 
-    sim_path = SIM_DIR / "SamplingResults.csv"
+    sim_path = SIM_DIR / "SamplingResultsNonField.csv"
     sim_data_arr = pd.read_csv(sim_path).to_numpy()
 
     sim_data = {}
@@ -68,7 +68,7 @@ def main() -> None:
     # Experiment: Load Data
     print(f"Loading experimental data from:\n    {EXP_DIR}")
 
-    exp_file_pre = ["Pulse253","Pulse254","Pulse255"]
+    exp_file_pre = ["Pulse211",]
     exp_file_post = ["SteadyDICData","SteadyHIVEData","SteadyPICOData"]
     exp_file_slices = [slice(2,11),slice(2,3),slice(1,2)]
     # NOTE: actually in file = 3,5,6,8,9,10
@@ -89,7 +89,7 @@ def main() -> None:
                 exp_data[kk] = data[:,jj]
 
     print("Loading experimental epistemic error data.")
-    exp_epis_file = Path.cwd() / "STC_ProbSim_MetaData_25X" / "STC2_1550A_SteadySummary.csv"
+    exp_epis_file = EXP_DIR / "Pulse211_SteadySummary.csv"
     exp_epis_err = pd.read_csv(exp_epis_file)
     exp_epis_err = exp_epis_err.to_numpy()
     # Extract the last row and columns where the 10 TCs and coil voltage are
@@ -111,6 +111,7 @@ def main() -> None:
     sim_cdfs_all = {}
     sim_data_lims = {}
     sim_cdfs_lims ={}
+    accum_cdf_fail_count: int = 0
 
     for kk in sim_data:
         cdfs = []
@@ -127,10 +128,14 @@ def main() -> None:
         accum_cdf = np.zeros_like(max_cdf.quantiles)
 
         for ee in range(epis_n):
-            this_cdf = stats.ecdf(sim_data[kk][ee,:]).cdf
+            this_sim_data = sim_data[kk][ee,:]
+            this_cdf = stats.ecdf(this_sim_data).cdf
             this_cdf_sum = np.sum(this_cdf.quantiles)
 
-            accum_cdf = accum_cdf + this_cdf.quantiles
+            if len(accum_cdf) == len(this_cdf.quantiles):
+                accum_cdf = accum_cdf + this_cdf.quantiles
+            else:
+                accum_cdf_fail_count += 1
 
             if this_cdf_sum > sum_max_cdf:
                 sum_max_cdf = this_cdf_sum
@@ -161,7 +166,11 @@ def main() -> None:
         sim_cdfs_lims[kk] = this_cdf
 
 
-    PLOT_ALL_SIM_CDFS = False
+    print(80*"=")
+    print(f"{accum_cdf_fail_count=}")
+    print(80*"=")
+
+    PLOT_ALL_SIM_CDFS = True
 
     if PLOT_ALL_SIM_CDFS:
         for ii,kk in enumerate(sim_cdfs_all):
