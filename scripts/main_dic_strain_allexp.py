@@ -20,7 +20,7 @@ def main() -> None:
 
     ax_strs = ("x","y","z")
 
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     exp_c: str = "tab:orange"
     sim_c: str = "tab:blue"
     mavm_c: str = "tab:green"

@@ -8,6 +8,12 @@ from scipy.interpolate import griddata
 import pyvale
 import valmetrics as vm
 
+# NOTE
+# - Can calculate difference maps for each epistemic sample so could have
+# hundreds, need to limit this to find the limiting cdfs for each case.
+# - Collapse full-field simulation data to limiting cdfs for each point?
+
+
 def main() -> None:
     print(80*"=")
     print("MAVM Calc for DIC Data: Pulse 25X")
@@ -22,22 +28,19 @@ def main() -> None:
 
     comps = (0,1,2)
     (xx,yy,zz) = (0,1,2)
-
-    ax_inds = (0,1,2)
-    ax_strs = ("x","y","z")
+    xy = 2
 
     plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_ind: int = 0
     exp_c: str = "tab:orange"
     sim_c: str = "tab:blue"
-    mavm_c: str = "tab:green"
 
-    DISP_COMP_STRS = ("x","y","z")
+    STRAIN_COMP_STRS = ("xx","yy","xy")
 
     #---------------------------------------------------------------------------
     # SIM: constants
     SIM_TAG = "red"
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_211"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
     # Reduced: 5000 = 100 aleatory x 50 epistemic
@@ -49,19 +52,15 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # EXP: constants
-    DIC_PULSES = ("253","254","255")
+    DIC_PULSES = ("211",)
     DIC_DIRS = (
-        Path.cwd() / "STC_Exp_DIC_253",
-        Path.cwd() / "STC_Exp_DIC_254",
-        Path.cwd() / "STC_Exp_DIC_255",
+        Path.cwd() / "STC_Exp_DIC_211",
     )
     # NOTE: first 100 frames are averaged to create the steady state reference
     # as frame 0000 the test data starts at frame 0100 and we need to then take
     # frames based on this frame number
     FRAME_OFFSET: int = 99
-    DIC_STEADY = [(297-FRAME_OFFSET,694-FRAME_OFFSET+1),
-                  (302-FRAME_OFFSET,694-FRAME_OFFSET+1),
-                  (293-FRAME_OFFSET,694-FRAME_OFFSET+1)] # Need to add 1 to slice
+    DIC_STEADY = [(240-FRAME_OFFSET,694-FRAME_OFFSET+1),] # Need to add 1 to slice
 
     #---------------------------------------------------------------------------
     # Check directories exist and create output directories
@@ -77,7 +76,7 @@ def main() -> None:
             raise FileNotFoundError(f"{dd}: directory does not exist.")
 
 
-    save_path = Path.cwd() / "images_dic_pulse25X"
+    save_path = Path.cwd() / "images_dic_pulse211"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -88,13 +87,9 @@ def main() -> None:
     sim_data = {}
 
     sim_coord_path = FE_DIR / "Mesh.csv"
-    # sim_field_paths = {"disp_x": FE_DIR / "u (m)_All.npy",
-    #                    "disp_y": FE_DIR / "v (m)_All.npy",
-    #                    "disp_z": FE_DIR / "w (m)_All.npy",}
-
-    sim_field_paths = {"disp_x": FE_DIR / "u (m)_All.npy",
-                       "disp_y": FE_DIR / "v (m)_All.npy",
-                       "disp_z": FE_DIR / "w (m)_All.npy",}
+    sim_field_paths = {"strain_xx": FE_DIR / "solid.el11 (1)_All.npy",
+                       "strain_yy": FE_DIR / "solid.el22 (1)_All.npy",
+                       "strain_xy": FE_DIR / "solid.el12 (1)_All.npy",}
 
     # Load simulation nodal coords
     print(f"Loading sim coords from:\n    {sim_coord_path}")
@@ -126,16 +121,16 @@ def main() -> None:
 
     # Push the displacement data into a single matrix from the separate files
     # shape=(n_epis,n_alea,n_nodes,n_comps[x,y,z])
-    sim_disp = np.zeros((SIM_EPIS_N,SIM_ALEA_N,sim_num_nodes,3),dtype=np.float64)
+    sim_strain = np.zeros((SIM_EPIS_N,SIM_ALEA_N,sim_num_nodes,3),dtype=np.float64)
 
     print()
     print(f"{sim_coords.shape=}")
-    print(f"{sim_temp['disp_x'].shape=}")
+    print(f"{sim_temp['strain_xx'].shape=}")
     print()
 
-    sim_disp[:,:,:,0] = sim_temp["disp_x"]
-    sim_disp[:,:,:,1] = sim_temp["disp_y"]
-    sim_disp[:,:,:,2] = sim_temp["disp_z"]
+    sim_strain[:,:,:,xx] = sim_temp["strain_xx"]
+    sim_strain[:,:,:,yy] = sim_temp["strain_yy"]
+    sim_strain[:,:,:,xy] = sim_temp["strain_xy"]
     del sim_temp
 
 
@@ -154,15 +149,15 @@ def main() -> None:
     # Load experiment data
     print("LOAD EXP DATA")
     print(80*"-")
-    FORCE_EXP_LOAD = False
+    FORCE_EXP_LOAD = True
     exp_coord_temp = temp_path / f"exp{EXP_IND}_coords.npy"
-    exp_disp_temp = temp_path / f"exp{EXP_IND}_disp.npy"
+    exp_strain_temp = temp_path / f"exp{EXP_IND}_strain.npy"
 
     if FORCE_EXP_LOAD or (
-        not exp_coord_temp.is_file() and not exp_disp_temp.is_file()):
+        not exp_coord_temp.is_file() and not exp_strain_temp.is_file()):
 
         exp_field_slices = {"coords":slice(2,5),
-                            "disp":slice(5,8),}
+                            "strain":slice(18,21),}
 
         exp_load_opts = vm.ExpDataLoadOpts(skip_header=1,
                                            threads_num=PARA)
@@ -179,16 +174,16 @@ def main() -> None:
         print()
         print("Saving data to numpy binary")
         np.save(exp_coord_temp,exp_data["coords"])
-        np.save(exp_disp_temp,exp_data["disp"])
+        np.save(exp_strain_temp,exp_data["strain"])
 
     else:
         exp_data = {}
         print("Loading numpy exp data from:"
               + f"\n    {exp_coord_temp}"
-              + f"\n    {exp_disp_temp}")
+              + f"\n    {exp_strain_temp}")
         start_time = time.perf_counter()
         exp_data["coords"] = np.load(exp_coord_temp)
-        exp_data["disp"] = np.load(exp_disp_temp)
+        exp_data["strain"] = np.load(exp_strain_temp)
         end_time = time.perf_counter()
         print(f"Loading numpy exp data took: {end_time-start_time}s\n")
 
@@ -215,8 +210,8 @@ def main() -> None:
 
     exp_coords = np.ascontiguousarray(
         np.swapaxes(exp_data["coords"],0,1))
-    exp_disp = np.ascontiguousarray(
-        np.swapaxes(exp_data["disp"],0,1))
+    exp_strain = np.ascontiguousarray(
+        np.swapaxes(exp_data["strain"],0,1))
     del exp_data
 
     print("SWAP AXES")
@@ -224,12 +219,14 @@ def main() -> None:
     print()
     print("SIM DATA: Swap Axes")
     print(f"{sim_coords.shape=}")
-    print(f"{sim_disp.shape=}")
+    print(f"{sim_strain.shape=}")
     print()
     print("EXP DATA: Swap Axes")
     print(f"{exp_coords.shape=}")
-    print(f"{exp_disp.shape=}")
+    print(f"{exp_strain.shape=}")
     print(80*"-")
+
+    print(exp_strain[0,0,:])
 
     #---------------------------------------------------------------------------
     # SIM: Transform simulation coords
@@ -261,74 +258,15 @@ def main() -> None:
     del sim_with_w
     print()
 
-    #---------------------------------------------------------------------------
-    # SIM: Transform simulation displacements
-    # NOTE: field arrays have shape=(n_doe_samps,n_pts,n_comps)
-    print(80*"-")
-    print("SIM: Transforming simulation displacements...")
-    print(f"{sim_disp.shape=}")
-    print()
-
-    sim_disp_t = np.zeros_like(sim_disp)
-    for ee in range(0,sim_disp.shape[0]):
-        for aa in range(0,sim_disp.shape[1]):
-            sim_disp_t[ee,aa,:,:] = np.matmul(world_to_sim_mat[:-1,:-1],
-                                        sim_disp[ee,aa,:,:].T).T
-
-            rigid_disp = np.atleast_2d(np.mean(sim_disp_t[ee,aa,:,:],axis=0)).T
-            rigid_disp = np.tile(rigid_disp,sim_disp.shape[2]).T
-            sim_disp_t[ee,aa,:,:] -= rigid_disp
-
-    sim_disp = sim_disp_t
-    del sim_disp_t
+    # TODO: work out how to do the tensor transformation for the experimental
 
     #---------------------------------------------------------------------------
-    # EXP: Transform coords, required for each frame
-    # NOTE: exp field arrays have shape=(n_frames,n_pts,n_comps)
-
-    print("Transforming experimental coords...")
-    print(f"{exp_coords.shape=}")
-
-    exp_coord_t = np.zeros_like(exp_coords)
-    exp_disp_t = np.zeros_like(exp_disp)
-
-    for ff in range(0,exp_disp.shape[0]):
-        exp_to_world_mat = vm.fit_coord_matrix(exp_coords[ff,:,:])
-        world_to_exp_mat = np.linalg.inv(exp_to_world_mat)
-
-        exp_with_w = np.hstack([exp_coords[ff,:,:],
-                                np.ones([exp_coords.shape[1],1])])
-
-        exp_coord_temp = np.matmul(world_to_exp_mat,exp_with_w.T).T
-        exp_coord_t[ff,:,:] = exp_coord_temp[:,:-1]
-
-        # Flip the y coord for the experiment?
-        exp_coord_t[ff,:,1] = -exp_coord_t[ff,:,1]
-
-        exp_disp_t[ff,:,:] = np.matmul(world_to_exp_mat[:-1,:-1],exp_disp[ff,:,:].T).T
-        rigid_disp = np.atleast_2d(np.mean(exp_disp_t[ff,:,:],axis=0)).T
-        rigid_disp = np.tile(rigid_disp,exp_disp.shape[1]).T
-        exp_disp_t[ff,:,:] -= rigid_disp
-
-    exp_coords = exp_coord_t
-    exp_disp = exp_disp_t
-    del exp_coord_t, exp_disp_t
-
-    print("Coord transforms complete.")
-    print()
-
-    print("After transformation:")
-    print(f"{exp_coords.shape=}")
-    print(f"{exp_disp.shape=}")
-    print()
-
-    #---------------------------------------------------------------------------
-    # EXP-SIM Comparison of oords
+    # EXP-SIM Comparison of coords
     PLOT_COORD_COMP = False
 
     if PLOT_COORD_COMP:
         down_samp: int = 5
-        exp_frame: int = int(round(exp_disp.shape[0]/2))
+        exp_frame: int = int(round(exp_strain.shape[0]/2))
 
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
@@ -363,25 +301,19 @@ def main() -> None:
 
 
     #---------------------------------------------------------------------------
-    # Plot displacement fields on transformed coords
-    print("Plotting displacement fields for sim and exp.")
-
-    sim_disp = sim_disp[:,:,:,[1,2,0]]
-    # Based on the figures:
-    # exp_disp_0 = sim_disp_1 = X
-    # exp_disp_1 = sim_disp_2 = Y
-    # exp_disp_2 = sim_disp_0 = Z
+    # Plot strain fields on transformed coords
+    print("Plotting strain fields for sim and exp.")
 
     sim_x_min = np.min(sim_coords[:,0])
     sim_x_max = np.max(sim_coords[:,0])
     sim_y_min = np.min(sim_coords[:,1])
     sim_y_max = np.max(sim_coords[:,1])
 
-    PLOT_DISP_SIMEXP = True
+    PLOT_STRAIN_SIMEXP = False
 
-    if PLOT_DISP_SIMEXP:
+    if PLOT_STRAIN_SIMEXP:
         # Frame to plot from the experiment
-        exp_frame: int = int(round(exp_disp.shape[0]/2))
+        exp_frame: int = int(round(exp_strain.shape[0]/2))
         # Sample from the DOE to plot
         sim_plot_epis: int = 0
         sim_plot_alea: int = 0
@@ -393,55 +325,50 @@ def main() -> None:
         (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
         for aa in range(0,3):
-            exp_disp_grid = griddata(exp_coords[exp_frame,:,0:2],
-                                     exp_disp[exp_frame,:,aa],
+            exp_strain_grid = griddata(exp_coords[exp_frame,:,0:2],
+                                     exp_strain[exp_frame,:,aa],
                                      (x_grid,y_grid),
                                      method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(exp_disp_grid,
+            image = ax.imshow(exp_strain_grid,
                               extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
-            plt.title(f"Exp Data: disp. {DISP_COMP_STRS[aa]}")
+            plt.title(f"exp. strain, e_{STRAIN_COMP_STRS[aa]} [-]")
             plt.colorbar(image)
-            save_fig_path = (save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
-            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+            plt.savefig(
+                save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
+
 
         for aa in range(0,3):
-            sim_disp_grid = griddata(sim_coords[:,0:2],
-                                     sim_disp[sim_plot_epis,sim_plot_alea,:,aa],
+            sim_strain_grid = griddata(sim_coords[:,0:2],
+                                     sim_strain[sim_plot_epis,sim_plot_alea,:,aa],
                                      (x_grid,y_grid),
                                      method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(sim_disp_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+            image = ax.imshow(sim_strain_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
-            plt.title(f"Sim Data: disp. {DISP_COMP_STRS[aa]}")
+            plt.title(f"sim. strain, e_{STRAIN_COMP_STRS[aa]} [-]")
             plt.colorbar(image)
-
-            save_fig_path = (save_path/f"sim_map_{SIM_TAG}_disp_{DISP_COMP_STRS[aa]}.png")
+            save_fig_path = (save_path/f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
 
     #---------------------------------------------------------------------------
     # Average fields from experiment and simulation to plot the difference
     print("\nAveraging experiment steady state and simulation for full-field comparison.")
-    # exp_avg_start: int = 300
-    # exp_avg_end: int = 650
-
-    # No need to slice in this case as we have only loaded the steady state data
-    # exp_coords = exp_coords[exp_avg_start:exp_avg_end,:,:]
-    # exp_disp = exp_disp[exp_avg_start:exp_avg_end,:,:]
 
     # Had to change these to nanmean because of problems in experimental data
-    # Again, no need to slice here as we only have steady state data
     exp_coords_avg = np.nanmean(exp_coords,axis=0)
-    exp_disp_avg = np.nanmean(exp_disp,axis=0)
+    exp_strain_avg = np.nanmean(exp_strain,axis=0)
     # Average twice, once over epistemic uncertainty and once over aleatory
-    sim_disp_avg = np.nanmean(sim_disp,axis=0)
-    sim_disp_avg = np.nanmean(sim_disp_avg,axis=0)
+    sim_strain_avg = np.nanmean(sim_strain,axis=0)
+    sim_strain_avg = np.nanmean(sim_strain_avg,axis=0)
 
-    print(f"{exp_disp_avg.shape=}")
-    print(f"{sim_disp_avg.shape=}")
+    print(f"{exp_strain_avg.shape=}")
+    print(f"{sim_strain_avg.shape=}")
 
     elem_size = np.min(np.sqrt(np.sum((sim_coords[1:,:] - sim_coords[0,:])**2,axis=1)))
 
@@ -465,44 +392,45 @@ def main() -> None:
     print(f"{num_elem_y.shape=}")
     print()
 
+    ax_inds = (0,1,2)
+    ax_strs = ("xx","yy","xy")
 
+    PLOT_AVG_STRAIN_MAPS = True
 
-    PLOT_AVG_DISP_MAPS = True
-
-    if PLOT_AVG_DISP_MAPS:
-        print("Plotting avg. disp. maps and sim-exp diff.")
+    if PLOT_AVG_STRAIN_MAPS:
+        print("Plotting avg. strain maps and sim-exp diff.")
 
         for ii,ss in zip(ax_inds,ax_strs):
-            field_str = f"disp. {ss} [mm]"
+            field_str = f"strain e_{ss} [-]"
 
             (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
-                sim_disp_avg,
+                sim_strain_avg,
                 exp_coords_avg,
-                exp_disp_avg,
+                exp_strain_avg,
                 ii,
                 field_str,
                 scale_cbar=True,
             )
 
             save_fig_path = (save_path
-                         / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_dispavg_{ss}_comp.png")
+                         / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_strain_{ss}_comp.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
+            field_str = f"strain e_{ss} [-]"
             (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
-                sim_disp_avg,
+                sim_strain_avg,
                 exp_coords_avg,
-                exp_disp_avg,
+                exp_strain_avg,
                 ii,
                 field_str,
                 scale_cbar=False
             )
 
             save_fig_path = (save_path
-                / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_dispavg_{ss}_comp_cbarfree.png")
+                / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_strain_{ss}_comp_cbarfree.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
 
     #---------------------------------------------------------------------------
     # EXP-SIM: interpolate fields to a common grid
@@ -521,81 +449,81 @@ def main() -> None:
     (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
 
     FORCE_INTERP_COMMON = False
-    sim_disp_common_path = temp_path / f"sim_disp_common_{SIM_TAG}.npy"
-    exp_disp_common_path = temp_path / f"exp{EXP_IND}_disp_common.npy"
+    sim_strain_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
+    exp_strain_common_path = temp_path / f"exp{EXP_IND}_strain_common.npy"
 
     # Need to reshape simulation data to collapse epis and alea errors then
     # interpolate and then reshape back.
 
-    sim_shape = sim_disp.shape
-    sim_disp = np.reshape(sim_disp,(SIM_EPIS_N*SIM_ALEA_N,sim_shape[2],sim_shape[3]))
+    sim_shape = sim_strain.shape
+    sim_strain = np.reshape(sim_strain,(SIM_EPIS_N*SIM_ALEA_N,sim_shape[2],sim_shape[3]))
     print(f"{sim_shape=}")
-    print(f"{sim_disp.shape=}")
+    print(f"{sim_strain.shape=}")
     print()
 
-    if (FORCE_INTERP_COMMON or not sim_disp_common_path.is_file()):
+    if (FORCE_INTERP_COMMON or not sim_strain_common_path.is_file()):
 
-        print("Interpolating simulation displacements to common grid.")
+        print("Interpolating simulation strain to common grid.")
         start_time = time.perf_counter()
-        sim_disp_common = vm.interp_sim_to_common_grid(sim_coords,
-                                                       sim_disp,
+        sim_strain_common = vm.interp_sim_to_common_grid(sim_coords,
+                                                       sim_strain,
                                                        x_grid,
                                                        y_grid,
                                                        run_para=PARA)
         end_time = time.perf_counter()
-        print(f"Interpolating sim. displacements took: {end_time-start_time}s\n")
+        print(f"Interpolating sim. strain took: {end_time-start_time}s\n")
         print()
-        print("Reshaping common simulation disp to split epis and alea errors.")
-        print(f"{sim_disp_common.shape=}")
-        sim_disp_common = np.reshape(sim_disp_common,sim_shape)
-        print(f"{sim_disp_common.shape=}")
+        print("Reshaping common simulation strain to split epis and alea errors.")
+        print(f"{sim_strain_common.shape=}")
+        sim_strain_common = np.reshape(sim_strain_common,sim_shape)
+        print(f"{sim_strain_common.shape=}")
         print()
 
         print("Saving interpolated common grid data in npy format for speed.")
-        np.save(sim_disp_common_path,sim_disp_common)
+        np.save(sim_strain_common_path,sim_strain_common)
 
     else:
-        print("Loading pre-interpolated sim disp data for speed.")
-        sim_disp_common = np.load(sim_disp_common_path)
+        print("Loading pre-interpolated sim strain data for speed.")
+        sim_strain_common = np.load(sim_strain_common_path)
 
 
-    if (FORCE_INTERP_COMMON or not exp_disp_common_path.is_file()):
+    if (FORCE_INTERP_COMMON or not exp_strain_common_path.is_file()):
 
-        print("Interpolating experiment displacements to common grid.")
+        print("Interpolating experiment strain to common grid.")
         start_time = time.perf_counter()
-        exp_disp_common = vm.interp_exp_to_common_grid(exp_coords,
-                                                       exp_disp,
+        exp_strain_common = vm.interp_exp_to_common_grid(exp_coords,
+                                                       exp_strain,
                                                        x_grid,
                                                        y_grid,
                                                        run_para=PARA)
         end_time = time.perf_counter()
-        print(f"Interpolating exp. displacements took: {end_time-start_time}s\n")
+        print(f"Interpolating exp. strain took: {end_time-start_time}s\n")
 
         print("Saving interpolated common grid data in npy format for speed.")
-        np.save(exp_disp_common_path,exp_disp_common)
+        np.save(exp_strain_common_path,exp_strain_common)
 
     else:
-        print("Loading pre-interpolated exp disp data for speed.")
-        exp_disp_common = np.load(exp_disp_common_path)
+        print("Loading pre-interpolated exp strain data for speed.")
+        exp_strain_common = np.load(exp_strain_common_path)
 
 
     coords_common = np.vstack((x_grid.flatten(),y_grid.flatten())).T
 
     print()
     print("SIM-EXP: Interpolated data shapes:")
-    print(f"{sim_disp_common.shape=}")
-    print(f"{exp_disp_common.shape=}")
+    print(f"{sim_strain_common.shape=}")
+    print(f"{exp_strain_common.shape=}")
     print(f"{coords_common.shape=}")
     print()
 
-    coord_common_file = temp_path / "coord_common_for_disp.npy"
+    # Remove coords and strain to prevent errors
+    del exp_coords, exp_strain, sim_coords, sim_strain
+
+
+    coord_common_file = temp_path / "coord_common_for_strain.npy"
     if not coord_common_file.is_file():
         print("Saving common coords")
         np.save(coord_common_file,coords_common)
-
-
-    # Remove coords and disp to prevent errors
-    del exp_coords, exp_disp, sim_coords, sim_disp
 
     #---------------------------------------------------------------------------
     # SIM-EXP: Calculate mavm at a few key points
@@ -621,12 +549,12 @@ def main() -> None:
     print()
 
     print("Summing along aleatory axis and finding max/min...")
-    sim_limits = np.sum(sim_disp_common,axis=1)
+    sim_limits = np.sum(sim_strain_common,axis=1)
     sim_cdf_eind = {}
     sim_cdf_eind['max'] = np.argmax(sim_limits,axis=0)
     sim_cdf_eind['min'] = np.argmin(sim_limits,axis=0)
 
-    print(f"{sim_disp_common.shape=}")
+    print(f"{sim_strain_common.shape=}")
     print(f"{sim_limits.shape=}")
     print(f"{sim_cdf_eind['max'].shape=}")
     print(f"{sim_cdf_eind['min'].shape=}")
@@ -646,27 +574,27 @@ def main() -> None:
                                 layout="constrained")
             fig.set_dpi(plot_opts.resolution)
 
-            for ee in range(sim_disp_common.shape[0]):
-                axs.ecdf(sim_disp_common[ee,:,pp,cc]
+            for ee in range(sim_strain_common.shape[0]):
+                axs.ecdf(sim_strain_common[ee,:,pp,cc]
                         ,color='tab:blue',linewidth=plot_opts.lw)
 
             e_ind = sim_cdf_eind['max'][pp,cc]
-            axs.ecdf(sim_disp_common[e_ind,:,pp,cc]
+            axs.ecdf(sim_strain_common[e_ind,:,pp,cc]
                     ,ls="--",color='black',linewidth=plot_opts.lw)
 
             min_e = sim_cdf_eind['min'][pp,cc]
-            axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                     ,ls="--",color='black',linewidth=plot_opts.lw)
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-            ax_str = f"sim disp. {DISP_COMP_STRS[cc]} [mm]"
+            ax_str = f"sim strain {STRAIN_COMP_STRS[cc]} [-]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
             #axs.legend(loc="upper left",fontsize=6)
 
-            save_fig_path = (save_path/f"sim_dispcom_{DISP_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
+            save_fig_path = (save_path/f"sim_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -680,16 +608,16 @@ def main() -> None:
 
             # SIM CDFS
             max_e = sim_cdf_eind['max'][pp,cc]
-            axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+            axs.ecdf(sim_strain_common[max_e,:,pp,cc]
                     ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                     label="sim.")
 
             min_e = sim_cdf_eind['min'][pp,cc]
-            axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                     ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-            sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-            sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+            sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+            sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
             axs.fill_betweenx(sim_cdf_high.probabilities,
                             sim_cdf_low .quantiles,
                             sim_cdf_high.quantiles,
@@ -697,20 +625,20 @@ def main() -> None:
                             alpha=0.2)
 
             # EXP CDF
-            axs.ecdf(exp_disp_common[:,pp,cc]
+            axs.ecdf(exp_strain_common[:,pp,cc]
                     ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                     label="exp.")
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-            ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+            ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                        /f"exp{DIC_PULSES[EXP_IND]}_dispcom_{DISP_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+                        /f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     # plt.close("all")
@@ -737,8 +665,8 @@ def main() -> None:
 
         for kk in sim_lim_keys:
             e_ind = sim_cdf_eind[kk][pp,cc]
-            this_mavm[kk] = vm.mavm(sim_disp_common[e_ind,:,pp,cc],
-                                    exp_disp_common[:,pp,cc])
+            this_mavm[kk] = vm.mavm(sim_strain_common[e_ind,:,pp,cc],
+                                    exp_strain_common[:,pp,cc])
 
             check_upper = np.sum(this_mavm[kk]["F_"] + this_mavm[kk]["d+"])
             check_lower = np.sum(this_mavm[kk]["F_"] - this_mavm[kk]["d-"])
@@ -781,16 +709,16 @@ def main() -> None:
 
         # SIM CDFS
         max_e = sim_cdf_eind['max'][pp,cc]
-        axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                 label="sim.")
 
         min_e = sim_cdf_eind['min'][pp,cc]
-        axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-        sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-        sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
         axs.fill_betweenx(sim_cdf_high.probabilities,
                         sim_cdf_low .quantiles,
                         sim_cdf_high.quantiles,
@@ -798,7 +726,7 @@ def main() -> None:
                         alpha=0.2)
 
         # EXP CDF
-        axs.ecdf(exp_disp_common[:,pp,cc]
+        axs.ecdf(exp_strain_common[:,pp,cc]
                 ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                 label="exp.")
 
@@ -831,14 +759,14 @@ def main() -> None:
 
         this_coord = coords_common[mavm_inds[cc],:]
         title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            /f"exp{DIC_PULSES[EXP_IND]}_dispcom_{DISP_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
+            /f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -853,16 +781,16 @@ def main() -> None:
 
         # SIM CDFS
         max_e = sim_cdf_eind['max'][pp,cc]
-        axs.ecdf(sim_disp_common[max_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw,
                 label="sim.")
 
         min_e = sim_cdf_eind['min'][pp,cc]
-        axs.ecdf(sim_disp_common[min_e,:,pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
                 ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-        sim_cdf_high = stats.ecdf(sim_disp_common[max_e,:,pp,cc]).cdf
-        sim_cdf_low = stats.ecdf(sim_disp_common[min_e,:,pp,cc]).cdf
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
         axs.fill_betweenx(sim_cdf_high.probabilities,
                         sim_cdf_low .quantiles,
                         sim_cdf_high.quantiles,
@@ -886,23 +814,22 @@ def main() -> None:
 
         this_coord = coords_common[mavm_inds[cc],:]
         title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"disp. {DISP_COMP_STRS[cc]} [mm]"
+        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [-]"
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            / f"exp{DIC_PULSES[EXP_IND]}_dispcom_{DISP_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
+            / f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
 
     #---------------------------------------------------------------------------
     print(80*"-")
     print("COMPLETE.")
-    #plt.show()
-
-
-
+    plt.show()
 
 if __name__ == "__main__":
     main()

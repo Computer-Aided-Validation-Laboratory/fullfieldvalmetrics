@@ -21,7 +21,7 @@ def main() -> None:
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
 
     #---------------------------------------------------------------------------
     # Load Sim Data

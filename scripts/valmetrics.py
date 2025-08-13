@@ -110,7 +110,8 @@ def load_exp_data(data_path: Path,
 
                 process = pool.apply_async(_load_one_exp, args=args)
                 processes_with_id.append({"process": process,
-                                          "frame": ii+1})
+                                          "frame": ii+1,
+                                          "file": ff})
 
             for pp in processes_with_id:
                 frame_data = pp["process"].get()
@@ -374,7 +375,7 @@ def plot_disp_comp_maps(sim_coords: np.ndarray,
 
     cbar_font_size = 6.0
 
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
 
     fig,ax = plt.subplots(1,3,figsize=fig_size,layout='constrained')
@@ -479,7 +480,7 @@ def plot_avg_field_maps_nosave(sim_coords: np.ndarray,
 
     cbar_font_size = 6.0
 
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
     fig,ax = plt.subplots(1,3,figsize=fig_size,layout='constrained')
     fig.set_dpi(plot_opts.resolution)
@@ -995,7 +996,7 @@ def mavm_figs(mavm_res: dict[str,Any],
     # axs.legend()
     # axs.set_xlabel(field_label)
     # axs.set_ylabel("Probability")
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
 
     # plot empirical cdf with conf. int. cdfs
     fig,axs=plt.subplots(1,1,
@@ -1055,7 +1056,7 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
                   extent: tuple[float,float,float,float],
                   save_tag: str = "") -> None:
 
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2))
 
     fig,ax = plt.subplots(1,2,figsize=fig_size,layout='constrained')

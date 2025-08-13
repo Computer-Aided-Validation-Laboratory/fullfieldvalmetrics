@@ -29,7 +29,7 @@ def main() -> None:
     comps = (0,1,2)
     (xx,yy,zz) = (0,1,2)
 
-    plot_opts = pyvale.PlotOptsGeneral()
+    plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_ind: int = 0
     exp_c: str = "tab:orange"
     sim_c: str = "tab:blue"

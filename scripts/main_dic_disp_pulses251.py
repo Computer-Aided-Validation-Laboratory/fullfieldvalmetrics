@@ -10,7 +10,7 @@ import valmetrics as vm
 
 def main() -> None:
     print(80*"=")
-    print("MAVM Calc for DIC Data: Pulse 25X")
+    print("MAVM Calc for DIC Data: Pulse 211")
     print(80*"=")
     print()
 
@@ -37,7 +37,7 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM: constants
     SIM_TAG = "red"
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_211"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
     # Reduced: 5000 = 100 aleatory x 50 epistemic
@@ -49,19 +49,15 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # EXP: constants
-    DIC_PULSES = ("253","254","255")
+    DIC_PULSES = ("211",)
     DIC_DIRS = (
-        Path.cwd() / "STC_Exp_DIC_253",
-        Path.cwd() / "STC_Exp_DIC_254",
-        Path.cwd() / "STC_Exp_DIC_255",
+        Path.cwd() / "STC_Exp_DIC_211",
     )
     # NOTE: first 100 frames are averaged to create the steady state reference
     # as frame 0000 the test data starts at frame 0100 and we need to then take
     # frames based on this frame number
     FRAME_OFFSET: int = 99
-    DIC_STEADY = [(297-FRAME_OFFSET,694-FRAME_OFFSET+1),
-                  (302-FRAME_OFFSET,694-FRAME_OFFSET+1),
-                  (293-FRAME_OFFSET,694-FRAME_OFFSET+1)] # Need to add 1 to slice
+    DIC_STEADY = [(240-FRAME_OFFSET,694-FRAME_OFFSET+1),] # Need to add 1 to slice
 
     #---------------------------------------------------------------------------
     # Check directories exist and create output directories
@@ -77,7 +73,7 @@ def main() -> None:
             raise FileNotFoundError(f"{dd}: directory does not exist.")
 
 
-    save_path = Path.cwd() / "images_dic_pulse25X"
+    save_path = Path.cwd() / "images_dic_pulse211"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
