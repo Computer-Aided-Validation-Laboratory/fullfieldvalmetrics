@@ -466,8 +466,10 @@ def main() -> None:
     x_vec = np.arange(sim_x_min,sim_x_max,step)
     y_vec = np.arange(sim_y_min,sim_y_max,step)
     (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
+    grid_shape = x_grid.shape
+    grid_num_pts = x_grid.size
 
-    FORCE_INTERP_COMMON = True
+    FORCE_INTERP_COMMON = False
 
     sim_strain_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
     exp_strain_common_path = temp_path / f"exp{EXP_IND}_strain_common.npy"
@@ -537,7 +539,7 @@ def main() -> None:
     print()
 
     # Remove coords and strain to prevent errors
-    del exp_coords, exp_strain, sim_coords, sim_strain
+    # del exp_coords, exp_strain, sim_coords, sim_strain
 
 
     coord_common_file = temp_path / "coord_common_for_strain.npy"
@@ -550,10 +552,14 @@ def main() -> None:
     print(80*"-")
     print("SIM-EXP: finding key points in fields and plotting cdfs")
 
+    #PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
     # xx,yy = x=0, y=15
     # xy: x= +/-13, y=10
+    # find_point_xx = np.array([0.0,-15.0]) # mm
+    # find_point_xy = np.array([-13.0,-10.0])  # mm
     find_point_xx = np.array([0.0,-15.0]) # mm
     find_point_xy = np.array([-13.0,-10.0])  # mm
+    #PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
 
     mavm_inds = np.zeros((3,),dtype=np.uintp)
     mavm_inds[xx] = vm.find_nearest_points(coords_common,find_point_xx,k=3)[0]
@@ -679,12 +685,18 @@ def main() -> None:
     sim_lim_keys = ("min","max")
     mavm = {}
     mavm_lims = {}
+
+    # sim_strain_common.shape=[epis,alea,point,comp]
+    # exp_strain_common.shape=[alea,point,comp]
+    # e_ind: int    = epistemic sample index for limit CDF
+    # pp: int       = point/coord
+    # cc: int       = component index
     for cc,aa in enumerate(ax_strs):
 
         this_mavm = {}
         this_mavm_lim = {}
 
-        pp = mavm_inds[cc]
+        pp = mavm_inds[cc] # pp = point/coord, cc = component index
 
         dplus_cdf_sum = None
         dminus_cdf_sum = None
@@ -850,8 +862,327 @@ def main() -> None:
             / f"exp{DIC_PULSES[EXP_IND]}_straincom_{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
+    plt.close("all")
+
+    #--------------------------------------------------------------------------
+    # MAVM FIELD CALCULATION
+    FORCE_MAVM_MAP_CALC = False
+    mavm_d_plus_path = temp_path / f"mavm_d_plus_{SIM_TAG}.npy"
+    mavm_d_minus_path = temp_path / f"mavm_d_minus_{SIM_TAG}.npy"
+    mavm_d_plus_cdf_pts_path = temp_path / f"mavm_d_plus_cdf_pts_{SIM_TAG}.npy"
+    mavm_d_minus_cdf_pts_path = temp_path / f"mavm_d_minus_cdf_pts_{SIM_TAG}.npy"
+    mavm_d_plus_cdf_prob_path = temp_path / f"mavm_d_plus_cdf_prob_{SIM_TAG}.npy"
+    mavm_d_minus_cdf_prob_path = temp_path / f"mavm_d_minus_cdf_prob_{SIM_TAG}.npy"
+
+    # NOTE:
+    # - Only have aleatory for field data no epistemic
+    # - Want to keep the lowest bound:  SIM_LOWER - d-
+    # - Want to keep the highest bound: SIM_UPPER + d+
+    # - Combinations are for MAVM are:
+    #   - EXP -> SIM_UP    = d+,d-
+    #   - EXP -> SIM_DOWN  = d+,d-
+
+    if (FORCE_MAVM_MAP_CALC
+        or (not mavm_d_plus_path.is_file() and not mavm_d_minus_path.is_file())):
+        print("Calculating MAVM d+ and d- over all points for all strain comps.")
+
+        mavm_d_plus_cdf_pts = np.zeros((SIM_ALEA_N,grid_num_pts,3))
+        mavm_d_minus_cdf_pts = np.zeros((SIM_ALEA_N,grid_num_pts,3))
+        mavm_d_plus_cdf_prob = np.zeros((SIM_ALEA_N,grid_num_pts,3))
+        mavm_d_minus_cdf_prob = np.zeros((SIM_ALEA_N,grid_num_pts,3))
+        mavm_d_plus = np.zeros((grid_num_pts,3))
+        mavm_d_minus = np.zeros((grid_num_pts,3))
+
+        # sim_strain_common.shape=[epis,alea,point,comp], need [ee,:,pp,cc]
+        # exp_strain_common.shape=[alea,point,comp], need [:,pp,cc]
+        # ee: int    = epistemic sample index for limit CDF
+        # pp: int    = point/coord
+        # cc: int    = component index
+
+
+        sim_lim_keys = ("min","max")
+        mavm_lims = {}
+
+        analyse_pts = [1816,1716]
+        analyse_cmps = [1,]
+
+        for pp in range(0,grid_num_pts): #analyse_pts
+            print(f"Calculating MAVM for {pp}/{grid_num_pts}.")
+
+            for cc in range(0,3): #analyse_cmps
+
+                # If the experimental data is nan then we set the mavm to nan
+                if np.count_nonzero(np.isnan(exp_strain_common[:,pp,cc])) > 0:
+                    mavm_d_plus[pp,cc] = np.nan
+                    mavm_d_minus[pp,cc] = np.nan
+                    continue
+
+                this_mavm = {}
+                # Use these to find the limit cases
+                dplus_cdf_sum = None
+                dminus_cdf_sum = None
+
+                for kk in sim_lim_keys: # "max" | "min"
+                    ee = sim_cdf_eind[kk][pp,cc]
+                    # print(80*"-")
+                    # print(f"{pp=}")
+                    # print(f"{cc=}")
+                    # print(f"{kk=}")
+                    # print(f"{ee=}")
+                    # print(80*"-")
+
+                    this_mavm[kk] = vm.mavm(sim_strain_common[ee,:,pp,cc],
+                                            exp_strain_common[:,pp,cc])
+
+                    # NOTE: have to sum then add d!!! Otherwise round off error
+                    check_upper = np.sum(this_mavm[kk]["F_"]) + this_mavm[kk]["d+"]
+                    if dplus_cdf_sum is None:
+                        #print("Set dplus cdf")
+                        dplus_cdf_sum = check_upper
+                        mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
+                        mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                        mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+                    else:
+                        if check_upper > dplus_cdf_sum:
+                            #print("Update dplus cdf")
+                            dplus_cdf_sum = check_upper
+                            mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
+                            mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                            mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+
+                    check_lower = np.sum(this_mavm[kk]["F_"]) - this_mavm[kk]["d-"]
+                    if dminus_cdf_sum is None:
+                        #print("Set dminus cdf")
+                        dminus_cdf_sum = check_lower
+                        mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
+                        mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                        mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+                    else:
+                        if check_lower < dminus_cdf_sum:
+                            #print("Update dplus cdf")
+                            dminus_cdf_sum = dminus_cdf_sum
+                            mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
+                            mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                            mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+
+
+        print("Saving MAVM calculation for faster loading.")
+        np.save(mavm_d_plus_path,mavm_d_plus)
+        np.save(mavm_d_minus_path,mavm_d_minus)
+        np.save(mavm_d_plus_cdf_pts_path,mavm_d_plus_cdf_pts)
+        np.save(mavm_d_minus_cdf_pts_path,mavm_d_minus_cdf_pts)
+        np.save(mavm_d_plus_cdf_prob_path,mavm_d_plus_cdf_prob)
+        np.save(mavm_d_minus_cdf_prob_path,mavm_d_minus_cdf_prob)
+    else:
+        print("Loading previous MAVM d+ and d- from npy.")
+        mavm_d_plus = np.load(mavm_d_plus_path)
+        mavm_d_minus = np.load(mavm_d_minus_path)
+        mavm_d_plus_cdf_pts = np.load(mavm_d_plus_cdf_pts_path)
+        mavm_d_minus_cdf_pts = np.load(mavm_d_minus_cdf_pts_path)
+        mavm_d_plus_cdf_prob = np.load(mavm_d_plus_cdf_prob_path)
+        mavm_d_minus_cdf_prob = np.load(mavm_d_minus_cdf_prob_path)
+
+    mavm_d_max = np.maximum(mavm_d_minus,mavm_d_plus)
+
+
+    #--------------------------------------------------------------------------
+    # MAVM FIELD PLOTS
+    print(80*"-")
+    print(f"{mavm_d_plus.shape=}")
+    print(f"{mavm_d_minus.shape=}")
+    print(f"{mavm_d_plus_cdf_pts.shape=}")
+    print(f"{mavm_d_minus_cdf_pts.shape=}")
+    print(80*"-")
+
+    ax_strs = ("xx","yy","xy")
+    ax_inds = (0,1,2)
+    extent = (sim_x_min,sim_x_max,sim_y_min,sim_y_max)
+    for ii,ss in zip(ax_inds,ax_strs):
+        vm.plot_mavm_map(mavm_d_plus,
+                         mavm_d_minus,
+                         ii,
+                         ss,
+                         grid_shape,
+                         extent,
+                         save_tag=SIM_TAG,
+                         field_str="strain",
+                         unit_str=FIELD_UNIT_STR,
+                         save_path=save_path)
 
     #---------------------------------------------------------------------------
+    # Plot MAVM at follow up points
+    # NOTE: y coord should be -'ve here to get to the top of block
+    # NOTE: coord is flipped in cdf plots to make it look consistent
+    find_pts_yy = np.array(((-20.46,-9.92),
+                            (-21,-7.39),
+                            (20,-13),
+                            (-13,-12),))
+
+    mavm_pts_yy = np.zeros((find_pts_yy.shape[0],),dtype=np.uintp)
+    for pp in range(find_pts_yy.shape[0]):
+        mavm_pts_yy[pp] = vm.find_nearest_points(coords_common,
+                                                    find_pts_yy[pp,:],
+                                                    k=3)[0]
+
+    # mavm_pts_yy = vm.find_nearest_points(coords_common,
+    #                                      np.array((-16.79,-8.73)),
+    #                                      k=2)
+
+    print(80*"-")
+    print(f"{mavm_pts_yy=}")
+    print(80*"-")
+
+    cc: int = 1 # xx strain component
+    for pp in mavm_pts_yy:
+        fig,axs=plt.subplots(1,1,
+                figsize=plot_opts.single_fig_size_landscape,
+                layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        # SIM CDFS
+        max_e = sim_cdf_eind['max'][pp,cc]
+        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                label="sim.")
+
+        min_e = sim_cdf_eind['min'][pp,cc]
+        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+        axs.fill_betweenx(sim_cdf_high.probabilities,
+                        sim_cdf_low .quantiles,
+                        sim_cdf_high.quantiles,
+                        color=sim_c,
+                        alpha=0.2)
+
+        axs.ecdf(exp_strain_common[:,pp,cc]
+                    ,ls="-",color=exp_c,linewidth=plot_opts.lw,
+                    label="exp.")
+
+        # MAVM
+        mavm_c = "black"
+        axs.plot(mavm_d_minus_cdf_pts[:,pp,cc],# - mavm_d_minus[pp,cc],
+                    mavm_d_minus_cdf_prob[:,pp,cc], label="d-",
+                    ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+        axs.plot(mavm_d_plus_cdf_pts[:,pp,cc],# + mavm_d_plus[pp,cc],
+                    mavm_d_plus_cdf_prob[:,pp,cc], label="d+",
+                    ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+        # axs.fill_betweenx(mavm_lims[aa]["max"]["F_Y"],
+        #                   mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
+        #                   mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+        #                   color=mavm_c,
+        #                 alpha=0.2)
+
+        this_coord = coords_common[pp,:]
+        title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [{FIELD_UNIT_STR}]"
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+        axs.legend(loc="upper left",fontsize=6)
+
+    plt.close("all")
+
+    #---------------------------------------------------------------------------
+    # FEC paper figure
+    # FUNCTION INPUTS
+    ax_ind = yy
+    scale_cbar = True
+    field_strs = (r"$e_{xx}$",r"$e_{yy}$",r"$e_{xy}$")
+
+    for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
+        field_str = field_strs[ax_ind]
+
+        sim_x_min = np.min(sim_coords[:,0])
+        sim_x_max = np.max(sim_coords[:,0])
+        sim_y_min = np.min(sim_coords[:,1])
+        sim_y_max = np.max(sim_coords[:,1])
+
+        step = 0.5
+        x_vec = np.arange(sim_x_min,sim_x_max,step)
+        y_vec = np.arange(sim_y_min,sim_y_max,step)
+        (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
+
+        exp_disp_grid_avg = griddata(exp_coords_avg[:,0:2],
+                                exp_strain_avg[:,ax_ind],
+                                (x_grid,y_grid),
+                                method="linear")
+
+        # This will do minimal interpolation as the input points are the same as the sim
+        sim_disp_grid_avg = griddata(sim_coords[:,0:2],
+                                sim_strain_avg[:,ax_ind],
+                                (x_grid,y_grid),
+                                method="linear")
+
+        disp_diff_avg = sim_disp_grid_avg - exp_disp_grid_avg
+
+        color_max = np.nanmax((np.nanmax(sim_disp_grid_avg),np.nanmax(exp_disp_grid_avg)))
+        color_min = np.nanmin((np.nanmin(sim_disp_grid_avg),np.nanmin(exp_disp_grid_avg)))
+
+        cbar_font_size = 6.0
+
+        plot_opts = pyvale.sensorsim.PlotOptsGeneral()
+        fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
+        fig,ax = plt.subplots(1,4,figsize=fig_size,layout='constrained')
+        fig.set_dpi(plot_opts.resolution)
+
+        if scale_cbar:
+            image = ax[0].imshow(exp_disp_grid_avg,
+                                extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                                vmin = color_min,
+                                vmax = color_max)
+        else:
+            image = ax[0].imshow(exp_disp_grid_avg,
+                                extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+
+        ax[0].set_title(f"Exp. Avg. \n{field_str} [{FIELD_UNIT_STR}]",
+                        fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+        cbar = plt.colorbar(image)
+
+
+        if scale_cbar:
+            image = ax[1].imshow(sim_disp_grid_avg,
+                                extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                                vmin = color_min,
+                                vmax = color_max)
+        else:
+            image = ax[1].imshow(sim_disp_grid_avg,
+                                extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+
+        ax[1].set_title(f"Sim. Avg.\n{field_str} [{FIELD_UNIT_STR}]",
+                        fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+        cbar = plt.colorbar(image)
+
+
+        image = ax[2].imshow(disp_diff_avg,
+                            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                            cmap="RdBu")
+        ax[2].set_title(f"(Sim. - Exp.)\n{field_str} [{FIELD_UNIT_STR}]",
+                        fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+        cbar = plt.colorbar(image)
+
+        mavm_map = np.reshape(mavm_d_max[:,ax_ind],grid_shape)
+        image = ax[3].imshow(mavm_map,
+            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),)
+        d_max_str = r"$d_{max}$"
+        ax[3].set_title(f"MAVM {d_max_str}\n{field_str} [{FIELD_UNIT_STR}]",
+                        fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
+        cbar = plt.colorbar(image)
+
+        for aa in ax:
+            aa.set_xticks([])
+            aa.set_yticks([])
+            for spine in aa.spines.values():
+                spine.set_visible(False)
+
+        save_fig_path = (save_path
+                        / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_strain_{ax_str}_maps_and_mavm.png")
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
     print(80*"-")
     print("COMPLETE.")
     plt.show()

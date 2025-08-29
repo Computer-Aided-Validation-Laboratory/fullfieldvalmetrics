@@ -1054,7 +1054,13 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
                   ax_str: str,
                   grid_shape: tuple[int,int],
                   extent: tuple[float,float,float,float],
-                  save_tag: str = "") -> None:
+                  save_tag: str = "",
+                  field_str: str = "disp.",
+                  unit_str: str = "mm",
+                  save_path: Path | None = None) -> None:
+
+    if save_path is None:
+        save_path = Path("images")
 
     plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2))
@@ -1068,21 +1074,21 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
     image = ax[0].imshow(mavm_dp_grid,
                       extent=extent)
     cbar = plt.colorbar(image)
-    ax[0].set_title(f"MAVM d+\ndisp. {ax_str} [mm]")
+    ax[0].set_title(f"MAVM d+\n{field_str} {ax_str} [{unit_str}]")
     ax[0].set_xlabel("x [mm]",fontsize=plot_opts.font_ax_size)
     ax[0].set_ylabel("y [mm]",fontsize=plot_opts.font_ax_size)
 
     image = ax[1].imshow(mavm_dm_grid,
                       extent=extent)
     cbar = plt.colorbar(image)
-    ax[1].set_title(f"MAVM d-\ndisp. {ax_str} [mm]")
+    ax[1].set_title(f"MAVM d-\n{field_str} {ax_str} [{unit_str}]")
     ax[1].set_xlabel("x [mm]",fontsize=plot_opts.font_ax_size)
     ax[1].set_ylabel("y [mm]",fontsize=plot_opts.font_ax_size)
 
     if save_tag:
-        save_path = Path("images")/f"mavm_map_disp{ax_str}_{save_tag}.png"
+        image_path = save_path/f"mavm_map_{field_str}{ax_str}_{save_tag}.png"
     else:
-        save_path = Path("images")/f"mavm_map_disp{ax_str}.png"
-    fig.savefig(save_path,dpi=300,format="png",bbox_inches="tight")
+        image_path = save_path/f"mavm_map_{field_str}{ax_str}.png"
+    fig.savefig(image_path,dpi=300,format="png",bbox_inches="tight")
 
 
