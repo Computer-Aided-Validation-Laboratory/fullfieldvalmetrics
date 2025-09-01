@@ -41,6 +41,7 @@ def main() -> None:
 
     FIELD_UNIT_CONV = 1e3
     FIELD_UNIT_STR = r"$m\epsilon$"
+    FIELD_AX_STRS = (r"$e_{xx}$",r"$e_{yy}$",r"$e_{xy}$")
 
     #---------------------------------------------------------------------------
     # SIM: constants
@@ -349,7 +350,7 @@ def main() -> None:
             image = ax.imshow(exp_strain_grid,
                               extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
-            plt.title(f"exp. strain, e_{STRAIN_COMP_STRS[aa]} [{FIELD_UNIT_STR}]")
+            plt.title(f"exp. strain, {FIELD_AX_STRS[aa]} [{FIELD_UNIT_STR}]")
             plt.colorbar(image)
             plt.savefig(
                 save_path/f"exp{DIC_PULSES[EXP_IND]}_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
@@ -364,7 +365,7 @@ def main() -> None:
             fig,ax = plt.subplots()
             image = ax.imshow(sim_strain_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
-            plt.title(f"sim. strain, e_{STRAIN_COMP_STRS[aa]} [{FIELD_UNIT_STR}]")
+            plt.title(f"sim. strain, {FIELD_AX_STRS[aa]} [{FIELD_UNIT_STR}]")
             plt.colorbar(image)
             save_fig_path = (save_path/f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
@@ -416,7 +417,7 @@ def main() -> None:
         print("Plotting avg. strain maps and sim-exp diff.")
 
         for ii,ss in zip(ax_inds,ax_strs):
-            field_str = f"strain e_{ss} [{FIELD_UNIT_STR}]"
+            field_str = f"strain {FIELD_AX_STRS[ii]} [{FIELD_UNIT_STR}]"
 
             (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
@@ -432,7 +433,7 @@ def main() -> None:
                          / f"exp{DIC_PULSES[EXP_IND]}_{SIM_TAG}_strain_{ss}_comp.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-            field_str = f"strain e_{ss} [{FIELD_UNIT_STR}]"
+            field_str = f"strain {FIELD_AX_STRS[ii]} [{FIELD_UNIT_STR}]"
             (fig,ax) = vm.plot_avg_field_maps_nosave(
                 sim_coords,
                 sim_strain_avg,
@@ -620,7 +621,7 @@ def main() -> None:
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-            ax_str = f"sim strain {STRAIN_COMP_STRS[cc]} [{FIELD_UNIT_STR}]"
+            ax_str = f"sim strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -663,7 +664,7 @@ def main() -> None:
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-            ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [{FIELD_UNIT_STR}]"
+            ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -797,7 +798,7 @@ def main() -> None:
 
         this_coord = coords_common[mavm_inds[cc],:]
         title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [{FIELD_UNIT_STR}]"
+        ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -852,7 +853,7 @@ def main() -> None:
 
         this_coord = coords_common[mavm_inds[cc],:]
         title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [{FIELD_UNIT_STR}]"
+        ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -1013,77 +1014,192 @@ def main() -> None:
     # Plot MAVM at follow up points
     # NOTE: y coord should be -'ve here to get to the top of block
     # NOTE: coord is flipped in cdf plots to make it look consistent
-    find_pts_yy = np.array(((-20.46,-9.92),
-                            (-21,-7.39),
-                            (20,-13),
-                            (-13,-12),))
+    find_pts = {}
+    find_pts["yy"] = np.array(((-20.0,-12.0),
+                               (20,-12),))
+    find_pts["xx"] = np.array(((-20.0,-12.0),
+                               (20,-12),))
+    find_pts["xy"] = np.array(((-15.0,0.0),
+                               (15.0,0.0)))
 
-    mavm_pts_yy = np.zeros((find_pts_yy.shape[0],),dtype=np.uintp)
-    for pp in range(find_pts_yy.shape[0]):
-        mavm_pts_yy[pp] = vm.find_nearest_points(coords_common,
-                                                    find_pts_yy[pp,:],
-                                                    k=3)[0]
+
+    mavm_pts = {}
+    for cc in STRAIN_COMP_STRS:
+        this_mavm_pts = np.zeros((find_pts[cc].shape[0],),dtype=np.uintp)
+        for pp in range(find_pts[cc].shape[0]):
+            this_mavm_pts[pp] = vm.find_nearest_points(coords_common,
+                                                        find_pts[cc][pp,:],
+                                                        k=3)[0]
+        mavm_pts[cc] = this_mavm_pts
 
     # mavm_pts_yy = vm.find_nearest_points(coords_common,
     #                                      np.array((-16.79,-8.73)),
     #                                      k=2)
 
     print(80*"-")
-    print(f"{mavm_pts_yy=}")
+    print(f"{mavm_pts['xx']=}")
+    print(f"{mavm_pts['yy']=}")
+    print(f"{mavm_pts['xy']=}")
     print(80*"-")
 
-    cc: int = 1 # xx strain component
-    for pp in mavm_pts_yy:
-        fig,axs=plt.subplots(1,1,
-                figsize=plot_opts.single_fig_size_landscape,
-                layout="constrained")
-        fig.set_dpi(plot_opts.resolution)
 
-        # SIM CDFS
-        max_e = sim_cdf_eind['max'][pp,cc]
-        axs.ecdf(sim_strain_common[max_e,:,pp,cc]
-                ,ls="--",color=sim_c,linewidth=plot_opts.lw,
-                label="sim.")
+    #cc: int = 1 # xx strain component
+    for cc,aa in enumerate(STRAIN_COMP_STRS):
+        for pp in mavm_pts[aa]:
+            #-------------------------------------------------------------------
+            # CDF COMP
+            fig,axs=plt.subplots(1,1,
+                    figsize=plot_opts.single_fig_size_landscape,
+                    layout="constrained")
+            fig.set_dpi(plot_opts.resolution)
 
-        min_e = sim_cdf_eind['min'][pp,cc]
-        axs.ecdf(sim_strain_common[min_e,:,pp,cc]
-                ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+            # SIM CDFS
+            max_e = sim_cdf_eind['max'][pp,cc]
+            axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                    label="sim.")
 
-        sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
-        sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
-        axs.fill_betweenx(sim_cdf_high.probabilities,
-                        sim_cdf_low .quantiles,
-                        sim_cdf_high.quantiles,
-                        color=sim_c,
-                        alpha=0.2)
+            min_e = sim_cdf_eind['min'][pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw)
 
-        axs.ecdf(exp_strain_common[:,pp,cc]
-                    ,ls="-",color=exp_c,linewidth=plot_opts.lw,
-                    label="exp.")
+            sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+            sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+            axs.fill_betweenx(sim_cdf_high.probabilities,
+                            sim_cdf_low .quantiles,
+                            sim_cdf_high.quantiles,
+                            color=sim_c,
+                            alpha=0.2)
 
-        # MAVM
-        mavm_c = "black"
-        axs.plot(mavm_d_minus_cdf_pts[:,pp,cc],# - mavm_d_minus[pp,cc],
-                    mavm_d_minus_cdf_prob[:,pp,cc], label="d-",
-                    ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+            axs.ecdf(exp_strain_common[:,pp,cc]
+                        ,ls="-",color=exp_c,linewidth=plot_opts.lw,
+                        label="exp.")
 
-        axs.plot(mavm_d_plus_cdf_pts[:,pp,cc],# + mavm_d_plus[pp,cc],
-                    mavm_d_plus_cdf_prob[:,pp,cc], label="d+",
-                    ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+            this_coord = coords_common[pp,:]
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
+            axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+            axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+            axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+            axs.legend(loc="upper left",fontsize=6)
 
-        # axs.fill_betweenx(mavm_lims[aa]["max"]["F_Y"],
-        #                   mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
-        #                   mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
-        #                   color=mavm_c,
-        #                 alpha=0.2)
 
-        this_coord = coords_common[pp,:]
-        title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
-        ax_str = f"strain e_{STRAIN_COMP_STRS[cc]} [{FIELD_UNIT_STR}]"
-        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
-        axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
-        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-        axs.legend(loc="upper left",fontsize=6)
+            save_fig_path = (save_path
+                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_cdfsonly.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+            #-------------------------------------------------------------------
+            # MAVM
+            fig,axs=plt.subplots(1,1,
+            figsize=plot_opts.single_fig_size_landscape,
+            layout="constrained")
+            fig.set_dpi(plot_opts.resolution)
+
+            # SIM CDFS
+            max_e = sim_cdf_eind['max'][pp,cc]
+            axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                    label="sim.")
+
+            min_e = sim_cdf_eind['min'][pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+            sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+            sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+            axs.fill_betweenx(sim_cdf_high.probabilities,
+                            sim_cdf_low .quantiles,
+                            sim_cdf_high.quantiles,
+                            color=sim_c,
+                            alpha=0.2)
+
+            # MAVM
+            mavm_c = "black"
+            axs.plot(mavm_d_minus_cdf_pts[:,pp,cc]- mavm_d_minus[pp,cc],
+                     mavm_d_minus_cdf_prob[:,pp,cc], label="d-",
+                     ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+            axs.plot(mavm_d_plus_cdf_pts[:,pp,cc] + mavm_d_plus[pp,cc],
+                     mavm_d_plus_cdf_prob[:,pp,cc], label="d+",
+                     ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+            axs.fill_betweenx(mavm_d_plus_cdf_prob[:,pp,cc],
+                              mavm_d_minus_cdf_pts[:,pp,cc]- mavm_d_minus[pp,cc],
+                              mavm_d_plus_cdf_pts[:,pp,cc] + mavm_d_plus[pp,cc],
+                              color=mavm_c,
+                              alpha=0.2)
+
+            this_coord = coords_common[pp,:]
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
+            axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+            axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+            axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+            axs.legend(loc="upper left",fontsize=6)
+
+            save_fig_path = (save_path
+                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_simonly.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+            #-------------------------------------------------------------------
+            # CDF COMP AND MAVM: EVERYTHING
+            fig,axs=plt.subplots(1,1,
+            figsize=plot_opts.single_fig_size_landscape,
+            layout="constrained")
+            fig.set_dpi(plot_opts.resolution)
+
+            # SIM CDFS
+            max_e = sim_cdf_eind['max'][pp,cc]
+            axs.ecdf(sim_strain_common[max_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw,
+                    label="sim.")
+
+            min_e = sim_cdf_eind['min'][pp,cc]
+            axs.ecdf(sim_strain_common[min_e,:,pp,cc]
+                    ,ls="--",color=sim_c,linewidth=plot_opts.lw)
+
+            sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
+            sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
+            axs.fill_betweenx(sim_cdf_high.probabilities,
+                            sim_cdf_low .quantiles,
+                            sim_cdf_high.quantiles,
+                            color=sim_c,
+                            alpha=0.2)
+
+            axs.ecdf(exp_strain_common[:,pp,cc]
+                        ,ls="-",color=exp_c,linewidth=plot_opts.lw,
+                        label="exp.")
+
+            # MAVM
+            mavm_c = "black"
+            axs.plot(mavm_d_minus_cdf_pts[:,pp,cc]- mavm_d_minus[pp,cc],
+                        mavm_d_minus_cdf_prob[:,pp,cc], label="d-",
+                        ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+            axs.plot(mavm_d_plus_cdf_pts[:,pp,cc] + mavm_d_plus[pp,cc],
+                        mavm_d_plus_cdf_prob[:,pp,cc], label="d+",
+                        ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
+
+            axs.fill_betweenx(mavm_d_plus_cdf_prob[:,pp,cc],
+                              mavm_d_minus_cdf_pts[:,pp,cc]- mavm_d_minus[pp,cc],
+                              mavm_d_plus_cdf_pts[:,pp,cc] + mavm_d_plus[pp,cc],
+                              color=mavm_c,
+                              alpha=0.2)
+
+            this_coord = coords_common[pp,:]
+            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+
+            ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
+            axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+            axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
+            axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+            axs.legend(loc="upper left",fontsize=6)
+
+            save_fig_path = (save_path
+                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_ALL.png")
+            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
 
     plt.close("all")
 
@@ -1092,10 +1208,9 @@ def main() -> None:
     # FUNCTION INPUTS
     ax_ind = yy
     scale_cbar = True
-    field_strs = (r"$e_{xx}$",r"$e_{yy}$",r"$e_{xy}$")
 
     for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
-        field_str = field_strs[ax_ind]
+        field_str = FIELD_AX_STRS[ax_ind]
 
         sim_x_min = np.min(sim_coords[:,0])
         sim_x_max = np.max(sim_coords[:,0])
@@ -1167,7 +1282,8 @@ def main() -> None:
 
         mavm_map = np.reshape(mavm_d_max[:,ax_ind],grid_shape)
         image = ax[3].imshow(mavm_map,
-            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),)
+            extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+            cmap="plasma")
         d_max_str = r"$d_{max}$"
         ax[3].set_title(f"MAVM {d_max_str}\n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)

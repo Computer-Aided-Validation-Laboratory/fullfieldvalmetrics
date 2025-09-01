@@ -11,7 +11,7 @@
 ## Validation Analysis
 In this work, we define validation as the process of determining the degree to which the model represents the true outcome that occurs in the real world. Experimental data is often taken as our best representation of the real world so we have cond
 
-There is a wide variety of approaches for assessing the predictive capability of models [REF]. One approach is to construct a 'validation metric' which is a .
+There is a wide variety of approaches for assessing the predictive capability of models [REF]. One approach is to construct a 'validation metric' which is a measure of distance between the model prediction and available experimental data taken to be .
 
 Validation analysis
 
