@@ -1016,11 +1016,15 @@ def main() -> None:
     # NOTE: coord is flipped in cdf plots to make it look consistent
     find_pts = {}
     find_pts["yy"] = np.array(((-20.0,-12.0),
-                               (20,-12),))
+                               (20.0,-12.0),
+                               (0.0,-15.0)))
     find_pts["xx"] = np.array(((-20.0,-12.0),
-                               (20,-12),))
+                               (20.0,-12.0),
+                               (0.0,-15.0)))
     find_pts["xy"] = np.array(((-15.0,0.0),
-                               (15.0,0.0)))
+                               (15.0,0.0),
+                               (-14.0,-8.0),
+                               (14,-8.0)))
 
 
     mavm_pts = {}
@@ -1045,7 +1049,7 @@ def main() -> None:
 
     #cc: int = 1 # xx strain component
     for cc,aa in enumerate(STRAIN_COMP_STRS):
-        for pp in mavm_pts[aa]:
+        for ii,pp in enumerate(mavm_pts[aa]):
             #-------------------------------------------------------------------
             # CDF COMP
             fig,axs=plt.subplots(1,1,
@@ -1076,7 +1080,7 @@ def main() -> None:
                         label="exp.")
 
             this_coord = coords_common[pp,:]
-            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            title_str = f"(x,y)=({this_coord[0]:.2f},{np.abs(this_coord[1]):.2f})"
             ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
@@ -1085,7 +1089,7 @@ def main() -> None:
 
 
             save_fig_path = (save_path
-                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_cdfsonly.png")
+                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_cdfsonly.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
             #-------------------------------------------------------------------
@@ -1130,7 +1134,7 @@ def main() -> None:
                               alpha=0.2)
 
             this_coord = coords_common[pp,:]
-            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            title_str = f"(x,y)=({this_coord[0]:.2f},{np.abs(this_coord[1]):.2f})"
             ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
             axs.set_xlabel(ax_str,fontsize=plot_opts.font_ax_size)
@@ -1138,7 +1142,7 @@ def main() -> None:
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_simonly.png")
+                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_simonly.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
             #-------------------------------------------------------------------
@@ -1187,7 +1191,7 @@ def main() -> None:
                               alpha=0.2)
 
             this_coord = coords_common[pp,:]
-            title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
+            title_str = f"(x,y)=({this_coord[0]:.2f},{np.abs(this_coord[1]):.2f})"
 
             ax_str = f"strain {FIELD_AX_STRS[cc]} [{FIELD_UNIT_STR}]"
             axs.set_title(title_str,fontsize=plot_opts.font_head_size)
@@ -1196,7 +1200,7 @@ def main() -> None:
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_ALL.png")
+                / f"mavm_exp{DIC_PULSES[EXP_IND]}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_ALL.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
