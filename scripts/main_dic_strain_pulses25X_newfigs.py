@@ -46,7 +46,7 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM: constants
     SIM_TAG = "redv2"
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_211"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
     # Reduced: 5000 = 100 aleatory x 50 epistemic
@@ -58,16 +58,19 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # EXP: constants
-    DIC_PULSES = ("211",)
+    DIC_PULSES = ("253","254","255")
     DIC_DIRS = (
-        Path.cwd() / "STC_Exp_DIC_211",
+        Path.cwd() / "STC_Exp_253",
+        Path.cwd() / "STC_Exp_254",
+        Path.cwd() / "STC_Exp_255",
     )
     # NOTE: first 100 frames are averaged to create the steady state reference
     # as frame 0000 the test data starts at frame 0100 and we need to then take
     # frames based on this frame number
-    # NOTE: update 28th August this seems to be wrong for pulse 211, offset is 0
-    FRAME_OFFSET: int = 0
-    DIC_STEADY = [(240-FRAME_OFFSET,694-FRAME_OFFSET+1),] # Need to add 1 to slice
+    FRAME_OFFSET: int = 99
+    DIC_STEADY = [(297-FRAME_OFFSET,694-FRAME_OFFSET+1),
+                  (302-FRAME_OFFSET,694-FRAME_OFFSET+1),
+                  (293-FRAME_OFFSET,694-FRAME_OFFSET+1)] # Need to add 1 to slice
 
     #---------------------------------------------------------------------------
     # Check directories exist and create output directories
