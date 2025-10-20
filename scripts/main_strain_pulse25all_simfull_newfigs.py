@@ -33,7 +33,6 @@ def main() -> None:
     FIELD_UNIT_STR = r"$m\epsilon$"
     FIELD_AX_STRS = (r"$e_{xx}$",r"$e_{yy}$",r"$e_{xy}$")
 
-    SIM_TAG = "redv2"
     EXP_TAG = "all"
 
     DIC_PULSES = ("253","254","255")
