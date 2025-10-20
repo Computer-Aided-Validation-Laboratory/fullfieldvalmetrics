@@ -45,18 +45,17 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # SIM: constants
-    SIM_TAG = "redv2"
+    SIM_TAG = "full"
 
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
     # Reduced: 5000 = 100 aleatory x 50 epistemic
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
     #samps_n: int = 5000
-    SIM_EPIS_N: int = 50
-    SIM_ALEA_N: int = 100
-
+    SIM_EPIS_N: int = 250 #50
+    SIM_ALEA_N: int = 400 #100
 
     #---------------------------------------------------------------------------
     temp_path = Path.cwd() / f"temp_exp{EXP_TAG}_sim{SIM_TAG}"
