@@ -15,6 +15,7 @@ import pandas as pd
 from scipy import stats
 from scipy.interpolate import griddata
 import pyvale
+import pyvale.mooseherder as mh
 
 #-------------------------------------------------------------------------------
 # pyvale generic exp data reader, need to merge into pyvale main
@@ -653,6 +654,8 @@ def interp_exp_to_common_grid(coords: np.ndarray,
 
 #-------------------------------------------------------------------------------
 # MAVM Calculation
+
+# TODO: cythonise this looping nonsense :(
 def mavm(model_data: np.ndarray,
          exp_data: np.ndarray,
          test: str | None = None
@@ -732,8 +735,7 @@ def mavm(model_data: np.ndarray,
 
     tol = 1e-12
 
-
-
+    # TODO: cythonise from here
     for kk in [0,1]:
         if test is not None:
             print(80*"=")

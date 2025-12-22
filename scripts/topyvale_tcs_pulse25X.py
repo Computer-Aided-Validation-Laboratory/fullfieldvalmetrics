@@ -12,13 +12,14 @@ def main() -> None:
     print(80*"=")
 
     EXP_DIR = Path.cwd() / "STC_Exp_TCs_25X"
-    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X"
-
+    #SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X"
+    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsReduced_25X"
+    
     sens_ax_labels = (r"Temp. [$^{\circ}C$]",)*10 + (r"Coil RMS Voltage [$V$]",)
     sens_tags = ("Temp",)*10 + ("Volts",)
     sens_num = len(sens_tags)
 
-    save_path = Path.cwd() / "images_pulse25X"
+    save_path = Path.cwd() / "topyvale_mavm_pulse25X"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -36,8 +37,8 @@ def main() -> None:
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
     #samps_n: int = 5000
-    epis_n: int = 250#50
-    alea_n: int = 400#100
+    epis_n: int = 50
+    alea_n: int = 100
 
     sim_keys = {"TC1":0,
                 "TC2":1,
@@ -112,7 +113,7 @@ def main() -> None:
     sim_data_lims = {}
     sim_cdfs_lims ={}
 
-    for kk in sim_data:
+    for kk in sim_data: # For each sensor
         cdfs = []
 
         max_data = sim_data[kk][0,:]
@@ -126,7 +127,7 @@ def main() -> None:
 
         accum_cdf = np.zeros_like(max_cdf.quantiles)
 
-        for ee in range(epis_n):
+        for ee in range(epis_n): # For each epistemic sample
             this_cdf = stats.ecdf(sim_data[kk][ee,:]).cdf
             this_cdf_sum = np.sum(this_cdf.quantiles)
 
