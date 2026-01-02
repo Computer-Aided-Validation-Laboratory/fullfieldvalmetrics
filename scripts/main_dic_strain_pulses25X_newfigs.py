@@ -16,7 +16,7 @@ import valmetrics as vm
 
 def main() -> None:
     print(80*"=")
-    print("MAVM Calc for DIC Data: Pulse 211")
+    print("MAVM Calc for DIC Data: Pulse 25X")
     print(80*"=")
     print()
 
