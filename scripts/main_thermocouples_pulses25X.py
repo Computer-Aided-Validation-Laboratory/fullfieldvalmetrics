@@ -12,13 +12,13 @@ def main() -> None:
     print(80*"=")
 
     EXP_DIR = Path.cwd() / "STC_Exp_TCs_25X"
-    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X"
+    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X_v3"
 
     sens_ax_labels = (r"Temp. [$^{\circ}C$]",)*10 + (r"Coil RMS Voltage [$V$]",)
     sens_tags = ("Temp",)*10 + ("Volts",)
     sens_num = len(sens_tags)
 
-    save_path = Path.cwd() / "images_pulse25X"
+    save_path = Path.cwd() / "images_pulse25X_v3"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -49,9 +49,9 @@ def main() -> None:
                 "TC8":7,
                 "TC9":8,
                 "TC10":9,
-                "CV":15,}
+                "CV":10,}
 
-    sim_path = SIM_DIR / "SamplingResults.csv"
+    sim_path = SIM_DIR / "SamplingResultsOnlyPointSensors.csv"
     sim_data_arr = pd.read_csv(sim_path).to_numpy()
 
     sim_data = {}
@@ -127,10 +127,14 @@ def main() -> None:
         accum_cdf = np.zeros_like(max_cdf.quantiles)
 
         for ee in range(epis_n):
+            this_data = sim_data[kk][ee,:]
             this_cdf = stats.ecdf(sim_data[kk][ee,:]).cdf
             this_cdf_sum = np.sum(this_cdf.quantiles)
 
-            accum_cdf = accum_cdf + this_cdf.quantiles
+            if len(accum_cdf) != len(this_cdf.quantiles):
+                accum_cdf = accum_cdf + np.sort(this_data)
+            else:
+                accum_cdf = accum_cdf + this_cdf.quantiles
 
             if this_cdf_sum > sum_max_cdf:
                 sum_max_cdf = this_cdf_sum
@@ -330,7 +334,7 @@ def main() -> None:
                          color=exp_c,
                          alpha=0.2)
 
-        axs.legend(loc="upper left",fontsize=6)
+        #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(kk,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -406,7 +410,7 @@ def main() -> None:
         # print(f"{dminus_max[kk]['d-']=}")
         # print(80*"-")
 
-        axs.legend(loc="upper left",fontsize=6)
+        #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(kk,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -454,7 +458,7 @@ def main() -> None:
 
 
         title_str = f"{kk}, MAVM d+ maximised"
-        axs.legend(loc="upper left",fontsize=6)
+        #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -495,7 +499,7 @@ def main() -> None:
 
 
         title_str = f"{kk}, MAVM d- maximised"
-        axs.legend(loc="upper left",fontsize=6)
+        #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
@@ -556,7 +560,7 @@ def main() -> None:
 
 
         title_str = f"{kk}, MAVM limits"
-        axs.legend(loc="upper left",fontsize=6)
+        #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)

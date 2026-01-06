@@ -16,13 +16,13 @@ import valmetrics as vm
 
 def main() -> None:
     print(80*"=")
-    print("MAVM Calc for DIC Data: Pulse 211")
+    print("MAVM Calc for DIC Data: Pulse 25X")
     print(80*"=")
     print()
 
     PLOT_AVG_FIELDS_RETURN = False
 
-    PARA: int = 32
+    PARA: int = 8
 
     #===========================================================================
     EXP_IND: int = 2
@@ -43,19 +43,26 @@ def main() -> None:
     FIELD_UNIT_STR = r"$m\epsilon$"
     FIELD_AX_STRS = (r"$e_{xx}$",r"$e_{yy}$",r"$e_{xy}$")
 
+    conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
+    
     #---------------------------------------------------------------------------
     # SIM: constants
-    SIM_TAG = "full"
-
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X"
-    conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
-
+    run_full = False
     # Reduced: 5000 = 100 aleatory x 50 epistemic
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
     #samps_n: int = 5000
-    SIM_EPIS_N: int = 250 #50
-    SIM_ALEA_N: int = 400 #100
+
+    if run_full:
+        SIM_TAG = "fullv3"
+        FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v3"
+        SIM_EPIS_N: int = 250 #50
+        SIM_ALEA_N: int = 400 #100
+    else:
+        SIM_TAG = "redv3"
+        FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X"
+        SIM_EPIS_N: int = 50 #50
+        SIM_ALEA_N: int = 100 #100
 
     #---------------------------------------------------------------------------
     # EXP: constants
@@ -1045,18 +1052,14 @@ def main() -> None:
                                                         k=3)[0]
         mavm_pts[cc] = this_mavm_pts
 
-    # mavm_pts_yy = vm.find_nearest_points(coords_common,
-    #                                      np.array((-16.79,-8.73)),
-    #                                      k=2)
-
     print(80*"-")
     print(f"{mavm_pts['xx']=}")
     print(f"{mavm_pts['yy']=}")
     print(f"{mavm_pts['xy']=}")
     print(80*"-")
 
+    plt.close("all")
 
-    #cc: int = 1 # xx strain component
     for cc,aa in enumerate(STRAIN_COMP_STRS):
         for ii,pp in enumerate(mavm_pts[aa]):
             #-------------------------------------------------------------------
@@ -1156,9 +1159,8 @@ def main() -> None:
 
             #-------------------------------------------------------------------
             # CDF COMP AND MAVM: EVERYTHING
-            fig,axs=plt.subplots(1,1,
-            figsize=plot_opts.single_fig_size_landscape,
-            layout="constrained")
+            fig,axs=plt.subplots(1,1,figsize=plot_opts.single_fig_size_landscape,
+                layout="constrained")
             fig.set_dpi(plot_opts.resolution)
 
             # SIM CDFS
@@ -1211,7 +1213,6 @@ def main() -> None:
             save_fig_path = (save_path
                 / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_ALL.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
 
 
     plt.close("all")
