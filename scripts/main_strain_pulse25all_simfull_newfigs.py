@@ -67,7 +67,7 @@ def main() -> None:
     if not temp_path.is_dir():
         temp_path.mkdir(exist_ok=True,parents=True)
 
-    save_path = Path.cwd() / f"images_dic_pulse25X_exp{EXP_TAG}_sim{SIM_TAG}_strainv2"
+    save_path = Path.cwd() / f"images_dic_pulse25X_exp{EXP_TAG}_sim{SIM_TAG}_v3"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -298,6 +298,7 @@ def main() -> None:
     # Paper Figures
     scale_cbar = True
 
+    strain_clims = {}
     for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
         field_str = FIELD_AX_STRS[ax_ind]
 
@@ -338,9 +339,12 @@ def main() -> None:
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
         cbar = plt.colorbar(image)
 
-
+        clim = float(np.nanmax(np.abs(strain_diff_avg[:,:,ax_ind])))
+        strain_clims[ax_str] = clim
         image = ax[2].imshow(strain_diff_avg[:,:,ax_ind],
                             extent=(x_min,x_max,y_min,y_max),
+                            vmin=-clim,
+                            vmax=clim,
                             cmap="RdBu")
         ax[2].set_title(f"(Sim. - Exp.)\n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
@@ -369,7 +373,7 @@ def main() -> None:
     #---------------------------------------------------------------------------
     print(80*"-")
     print("COMPLETE.")
-    #plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     main()

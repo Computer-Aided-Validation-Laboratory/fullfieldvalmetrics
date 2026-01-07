@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -28,6 +29,8 @@ def main() -> None:
     exp_c: str = "tab:orange"
     sim_c: str = "tab:blue"
 
+    ax_lims = {}
+    
     #---------------------------------------------------------------------------
     # Simulation: Load Data
     print(f"Loading simulation data from:\n    {SIM_DIR}")
@@ -165,7 +168,7 @@ def main() -> None:
         sim_cdfs_lims[kk] = this_cdf
 
 
-    PLOT_ALL_SIM_CDFS = False
+    PLOT_ALL_SIM_CDFS = True
 
     if PLOT_ALL_SIM_CDFS:
         for ii,kk in enumerate(sim_cdfs_all):
@@ -188,7 +191,9 @@ def main() -> None:
             axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-            save_fig_path = save_path / f"{fig_ind}_sim_allcdfs_{kk}.png"
+            fig_name = f"{fig_ind}_sim_allcdfs_{kk}.png"
+            ax_lims[fig_name] = axs.get_xlim()
+            save_fig_path = save_path / fig_name
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     #---------------------------------------------------------------------------
@@ -415,7 +420,9 @@ def main() -> None:
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-        save_fig_path = save_path / f"{fig_ind}_dextremes_wcdfs_{kk}.png"
+        fig_name = f"{fig_ind}_dextremes_wcdfs_{kk}.png"
+        ax_lims[fig_name] = axs.get_xlim()
+        save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -463,7 +470,9 @@ def main() -> None:
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-        save_fig_path = save_path / f"{fig_ind}_mavm_dplusmax_{kk}.png"
+        fig_name = f"{fig_ind}_mavm_dplusmax_{kk}.png"
+        ax_lims[fig_name] = axs.get_xlim()
+        save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
         plt.close(fig)
@@ -504,7 +513,9 @@ def main() -> None:
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-        save_fig_path = save_path / f"{fig_ind+1}_mavm_dminusmax_{kk}.png"
+        fig_name = f"{fig_ind+1}_mavm_dminusmax_{kk}.png"
+        ax_lims[fig_name] = axs.get_xlim()
+        save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
         plt.close(fig)
@@ -565,9 +576,15 @@ def main() -> None:
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-        save_fig_path = save_path / f"{fig_ind+2}_dextremes_wcdfs_{kk}.png"
+        fig_name = f"{fig_ind+2}_dextremes_wcdfs_{kk}.png"
+        ax_lims[fig_name] = axs.get_xlim()
+        save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
+
+    save_axlim_path = save_path / "axis_limits.json"
+    with open(save_axlim_path, "w") as file:
+        json.dump(ax_lims, file, indent=4)    
 
     plt.show()
 
