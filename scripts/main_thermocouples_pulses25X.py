@@ -586,7 +586,7 @@ def main() -> None:
     with open(save_axlim_path, "w") as file:
         json.dump(ax_lims, file, indent=4)    
 
-    plt.show()
+
 
     #---------------------------------------------------------------------------
     # Save MAVM to csv for all cases
@@ -632,6 +632,8 @@ def main() -> None:
     print("MAVM calculation complete.")
     print(80*"-")
 
+    #---------------------------------------------------------------------------
+    plt.show()
 
 if __name__ == "__main__":
     main()

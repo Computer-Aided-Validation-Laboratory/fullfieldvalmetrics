@@ -98,7 +98,7 @@ def main() -> None:
             raise FileNotFoundError(f"{dd}: directory does not exist.")
 
     # SAVE PATH!
-    save_path = Path.cwd() / f"images_dic_pulse{EXP_TAG}_sim{SIM_TAG}_strainv2"
+    save_path = Path.cwd() / f"images_dic_pulse{EXP_TAG}_sim{SIM_TAG}_strain"
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -289,7 +289,6 @@ def main() -> None:
     del sim_with_w
     print()
 
-    # TODO: work out how to do the tensor transformation for the experimental
 
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
@@ -378,11 +377,14 @@ def main() -> None:
                                      method="linear")
 
             fig,ax = plt.subplots()
-            image = ax.imshow(sim_strain_grid,extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
+            image = ax.imshow(sim_strain_grid,
+                               extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
             #ax.scatter(sim_coords[:,0],sim_coords[:,1])
             plt.title(f"sim. strain, {FIELD_AX_STRS[aa]} [{FIELD_UNIT_STR}]")
             plt.colorbar(image)
-            save_fig_path = (save_path/f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
+            save_fig_path = (save_path
+                /f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png"
+            )
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -1248,13 +1250,16 @@ def main() -> None:
 
         strain_diff_avg = sim_strain_grid_avg - exp_strain_grid_avg
 
-        color_max = np.nanmax((np.nanmax(sim_strain_grid_avg),np.nanmax(exp_strain_grid_avg)))
-        color_min = np.nanmin((np.nanmin(sim_strain_grid_avg),np.nanmin(exp_strain_grid_avg)))
+        color_max = np.nanmax((np.nanmax(sim_strain_grid_avg),
+                               np.nanmax(exp_strain_grid_avg)))
+        color_min = np.nanmin((np.nanmin(sim_strain_grid_avg),
+                               np.nanmin(exp_strain_grid_avg)))
 
         cbar_font_size = 6.0
 
         plot_opts = pyvale.sensorsim.PlotOptsGeneral()
-        fig_size = (plot_opts.a4_print_width,plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
+        fig_size = (plot_opts.a4_print_width,
+                    plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
         fig,ax = plt.subplots(1,4,figsize=fig_size,layout='constrained')
         fig.set_dpi(plot_opts.resolution)
 
