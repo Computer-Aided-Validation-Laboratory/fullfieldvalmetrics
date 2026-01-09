@@ -119,12 +119,11 @@ def main() -> None:
     # Load simulation nodal coords
     print(f"Loading sim coords from:\n    {sim_coord_path}")
     start_time = time.perf_counter()
-    sim_coords_df = pd.read_csv(sim_coord_path)
-    sim_coords = sim_coords_df.to_numpy()
+    sim_coords = pd.read_csv(sim_coord_path)
+    sim_coords = sim_coords.to_numpy()
     sim_coords = sim_coords*conv_to_mm
     end_time = time.perf_counter()
     print(f"Loading sim coords took: {end_time-start_time}s\n")
-    del sim_coords_df
 
     sim_num_nodes = sim_coords.shape[0]
 
@@ -288,7 +287,6 @@ def main() -> None:
     print(f"{sim_coords.shape=}")
     del sim_with_w
     print()
-
 
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
