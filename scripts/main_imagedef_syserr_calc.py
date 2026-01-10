@@ -227,8 +227,11 @@ def main() -> None:
     print(f"{grid_shape=}, {grid_num_pts=}")
     print() 
 
-    shift_x = 0.0
-    shift_y = 0.0
+    id_shift_x = 0.0
+    id_shift_y = 0.0
+    fe_shift_x = 0.0 # 3.5
+    fe_shift_y = 0.0
+
     fe_strain_grid = {}
     id_strain_grid = {}
     for kk in fe_strain:
@@ -237,13 +240,15 @@ def main() -> None:
         
         for cc in range(0,3): 
             fe_strain_temp[:,:,cc] = griddata(fe_coords[:,0:2],
-                                          fe_strain[kk][:,cc],
-                                          (x_grid,y_grid),
-                                          method="linear")
+                                              fe_strain[kk][:,cc],
+                                              (x_grid+fe_shift_x,
+                                               y_grid+fe_shift_y),
+                                              method="linear")
                                           
             id_strain_temp[:,:,cc] = griddata(id_coords[kk][:,0:2],
                                               id_strain[kk][:,cc],
-                                              (x_grid+shift_x,y_grid+shift_y),
+                                              (x_grid+id_shift_x,
+                                               y_grid+id_shift_y),
                                               method="linear")
         fe_strain_grid[kk] = fe_strain_temp
         id_strain_grid[kk] = id_strain_temp
@@ -360,11 +365,11 @@ def main() -> None:
 
             #-------------------------------------------------------------------
             # Turn of x,y axis ticks
-            for aa in ax:
-                aa.set_xticks([])
-                aa.set_yticks([])
-                for spine in aa.spines.values():
-                    spine.set_visible(False)
+            # for aa in ax:
+            #     aa.set_xticks([])
+            #     aa.set_yticks([])
+            #     for spine in aa.spines.values():
+            #         spine.set_visible(False)
 
             save_name = f"case_{kk}_id_vs_fe_{SIM_TAG}_strain_{ax_str}.png"
             save_fig_path = save_path / save_name
@@ -393,7 +398,7 @@ def main() -> None:
     print("Saving FE-ID error field to file.")
     print()
     
-    save_name = f"strain_err_field_fe_take_id_{SIM_TAG}.npy"
+    save_name = f"strain_err_field_fe_take_id.npy"
     np.save(FE_DIR / save_name,err_field)     
         
     #---------------------------------------------------------------------------

@@ -20,17 +20,18 @@ def main() -> None:
     print(80*"=")
     print()
 
-    PLOT_AVG_FIELDS_RETURN = False
-
     PARA: int = 8
 
     #===========================================================================
-    EXP_IND: int = 2
+    EXP_IND: int = 0
     #===========================================================================
 
     comps = (0,1,2)
     (xx,yy,zz) = (0,1,2)
     xy = 2
+    ax_inds = (0,1,2)
+    ax_strs = ("xx","yy","xy")
+
 
     plot_opts = pyvale.sensorsim.PlotOptsGeneral()
     fig_ind: int = 0
@@ -109,9 +110,6 @@ def main() -> None:
     sim_data = {}
 
     sim_coord_path = FE_DIR / "Mesh.csv"
-    # sim_field_paths = {"strain_xx": FE_DIR / "solid.el11 (1)_All.npy",
-    #                    "strain_yy": FE_DIR / "solid.el22 (1)_All.npy",
-    #                    "strain_xy": FE_DIR / "solid.el12 (1)_All.npy",}
     sim_field_paths = {"strain_xx": FE_DIR / "solid.el22 (1)_All.npy",
                        "strain_yy": FE_DIR / "solid.el33 (1)_All.npy",
                        "strain_xy": FE_DIR / "solid.el23 (1)_All.npy",}
@@ -145,7 +143,8 @@ def main() -> None:
 
     # Push the displacement data into a single matrix from the separate files
     # shape=(n_epis,n_alea,n_nodes,n_comps[x,y,z])
-    sim_strain = np.zeros((SIM_EPIS_N,SIM_ALEA_N,sim_num_nodes,3),dtype=np.float64)
+    sim_strain = np.zeros((SIM_EPIS_N,SIM_ALEA_N,sim_num_nodes,3),
+                          dtype=np.float64)
 
     print()
     print(f"{sim_coords.shape=}")
@@ -190,7 +189,8 @@ def main() -> None:
         start_time = time.perf_counter()
         exp_data = vm.load_exp_data(DIC_DIRS[EXP_IND],
                                     exp_field_slices,
-                                    slice(DIC_STEADY[EXP_IND][0],DIC_STEADY[EXP_IND][1]),
+                                    slice(DIC_STEADY[EXP_IND][0],
+                                          DIC_STEADY[EXP_IND][1]),
                                     exp_load_opts)
         end_time = time.perf_counter()
         print(f"Loading exp data took: {end_time-start_time}s\n")
@@ -327,69 +327,10 @@ def main() -> None:
         ax.set_ylabel("Y")
         plt.show()
 
-
-    #---------------------------------------------------------------------------
-    # Plot strain fields on transformed coords
-    print("Plotting strain fields for sim and exp.")
-
-    sim_x_min = np.min(sim_coords[:,0])
-    sim_x_max = np.max(sim_coords[:,0])
-    sim_y_min = np.min(sim_coords[:,1])
-    sim_y_max = np.max(sim_coords[:,1])
-
-    PLOT_STRAIN_SIMEXP = False
-
-    if PLOT_STRAIN_SIMEXP:
-        # Frame to plot from the experiment
-        exp_frame: int = int(round(exp_strain.shape[0]/2))
-        # Sample from the DOE to plot
-        sim_plot_epis: int = 0
-        sim_plot_alea: int = 0
-        div_n = 1000
-
-        x_vec = np.linspace(sim_x_min,sim_x_max,div_n)
-        y_vec = np.linspace(sim_y_min,sim_y_max,div_n)
-
-        (x_grid,y_grid) = np.meshgrid(x_vec,y_vec)
-
-        for aa in range(0,3):
-            exp_strain_grid = griddata(exp_coords[exp_frame,:,0:2],
-                                     exp_strain[exp_frame,:,aa],
-                                     (x_grid,y_grid),
-                                     method="linear")
-
-            fig,ax = plt.subplots()
-            image = ax.imshow(exp_strain_grid,
-                              extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
-            #ax.scatter(exp_coords[frame,:,0],exp_coords[frame,:,1])
-            plt.title(f"exp. strain, {FIELD_AX_STRS[aa]} [{FIELD_UNIT_STR}]")
-            plt.colorbar(image)
-            plt.savefig(
-                save_path/f"exp{EXP_TAG}_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png")
-
-
-        for aa in range(0,3):
-            sim_strain_grid = griddata(sim_coords[:,0:2],
-                                     sim_strain[sim_plot_epis,sim_plot_alea,:,aa],
-                                     (x_grid,y_grid),
-                                     method="linear")
-
-            fig,ax = plt.subplots()
-            image = ax.imshow(sim_strain_grid,
-                               extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
-            #ax.scatter(sim_coords[:,0],sim_coords[:,1])
-            plt.title(f"sim. strain, {FIELD_AX_STRS[aa]} [{FIELD_UNIT_STR}]")
-            plt.colorbar(image)
-            save_fig_path = (save_path
-                /f"sim_map_{SIM_TAG}_strain_{STRAIN_COMP_STRS[aa]}.png"
-            )
-            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
-
-
     #---------------------------------------------------------------------------
     # Average fields from experiment and simulation to plot the difference
-    print("\nAveraging experiment steady state and simulation for full-field comparison.")
+    print("\nAveraging experiment steady state and "
+          +"simulation for full-field comparison.")
 
     # Had to change these to nanmean because of problems in experimental data
     exp_coords_avg = np.nanmean(exp_coords,axis=0)
@@ -405,6 +346,12 @@ def main() -> None:
 
     tol = 1e-6
     scale = 1/tol
+
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+
     round_arr = np.round(sim_coords[:,0] * scale) / scale
     num_elem_x = np.unique(round_arr)
     round_arr = np.round(sim_coords[:,1]* scale) / scale
@@ -423,60 +370,11 @@ def main() -> None:
     print(f"{num_elem_y.shape=}")
     print()
 
-    ax_inds = (0,1,2)
-    ax_strs = ("xx","yy","xy")
-
-    PLOT_AVG_STRAIN_MAPS = True
-
-    if PLOT_AVG_STRAIN_MAPS:
-        print("Plotting avg. strain maps and sim-exp diff.")
-
-        for ii,ss in zip(ax_inds,ax_strs):
-            field_str = f"strain {FIELD_AX_STRS[ii]} [{FIELD_UNIT_STR}]"
-
-            (fig,ax) = vm.plot_avg_field_maps_nosave(
-                sim_coords,
-                sim_strain_avg,
-                exp_coords_avg,
-                exp_strain_avg,
-                ii,
-                field_str,
-                scale_cbar=True,
-            )
-
-            save_fig_path = (save_path
-                         / f"exp{EXP_TAG}_{SIM_TAG}_strain_{ss}_comp.png")
-            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
-            field_str = f"strain {FIELD_AX_STRS[ii]} [{FIELD_UNIT_STR}]"
-            (fig,ax) = vm.plot_avg_field_maps_nosave(
-                sim_coords,
-                sim_strain_avg,
-                exp_coords_avg,
-                exp_strain_avg,
-                ii,
-                field_str,
-                scale_cbar=False
-            )
-
-            save_fig_path = (save_path
-                / f"exp{EXP_TAG}_{SIM_TAG}_strain_{ss}_comp_cbarfree.png")
-            fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
-    if PLOT_AVG_FIELDS_RETURN:
-        plt.show()
-        return
-
     #---------------------------------------------------------------------------
     # EXP-SIM: interpolate fields to a common grid
     print()
     print(80*"-")
     print("SIM-EXP: interpolating to common grid")
-
-    sim_x_min = np.min(sim_coords[:,0])
-    sim_x_max = np.max(sim_coords[:,0])
-    sim_y_min = np.min(sim_coords[:,1])
-    sim_y_max = np.max(sim_coords[:,1])
 
     tol = 1e-6
     step = 0.5
@@ -558,12 +456,27 @@ def main() -> None:
     # Remove coords and strain to prevent errors
     # del exp_coords, exp_strain, sim_coords, sim_strain
 
-
     coord_common_file = temp_path / "coord_common_for_strain.npy"
     if not coord_common_file.is_file():
         print("Saving common coords")
         np.save(coord_common_file,coords_common)
 
+    #---------------------------------------------------------------------------
+    # LOAD EXP ERR GRID FROM FILE
+    print(80*"-")
+    print("LOAD ERROR FIELD:")
+    print("ERR = FE - ID => FE = ID + ERR")
+    print("TRUTH = EXP + ERR")
+    
+    id_err_file = f"strain_err_field_fe_take_id.npy"
+    id_err_field_grid = np.load(FE_DIR/id_err_file)
+    id_err_field_flat = np.reshape(id_err_field_grid,(2,7000,3)) 
+
+    print("shape=([min,max],grid_y,grid_x,strain[xx,yy,xy])")
+    print(f"{id_err_field_grid.shape=}")
+    print(f"{id_err_field_flat.shape=}")
+    print()
+    
     #---------------------------------------------------------------------------
     # SIM-EXP: Calculate mavm at a few key points
     print(80*"-")
@@ -574,15 +487,15 @@ def main() -> None:
     # xy: x= +/-13, y=10
     # find_point_xx = np.array([0.0,-15.0]) # mm
     # find_point_xy = np.array([-13.0,-10.0])  # mm
-    find_point_xx = np.array([0.0,-15.0]) # mm
+    find_point_xx = np.array([-20.0,-15.0]) # mm
+    find_point_yy = np.array([0.0,-15.0]) # mm
     find_point_xy = np.array([-13.0,-10.0])  # mm
     #PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
 
     mavm_inds = np.zeros((3,),dtype=np.uintp)
     mavm_inds[xx] = vm.find_nearest_points(coords_common,find_point_xx,k=3)[0]
-    mavm_inds[yy] = mavm_inds[xx]
+    mavm_inds[yy] = vm.find_nearest_points(coords_common,find_point_yy,k=3)[0]
     mavm_inds[xy] = vm.find_nearest_points(coords_common,find_point_xy,k=3)[0]
-
 
     print(80*"-")
     print(f"{mavm_inds=}")
@@ -608,14 +521,11 @@ def main() -> None:
     print(f"{sim_cdf_eind['min'][0,0]=}")
     print()
 
-    PLOT_COMMON_PT_EXP_TRACES = True
     PLOT_COMMON_PT_CDFS = True
 
-    if PLOT_COMMON_PT_EXP_TRACES:
-        pass
-
     if PLOT_COMMON_PT_CDFS:
-        print("Plotting all sim cdfs and limit cdfs for key points on common coords...")
+        print("Plotting all sim cdfs and limit cdfs for key points "
+              +"on common coords...")
         for cc in comps:
             pp = mavm_inds[cc]
             fig, axs=plt.subplots(1,1,
@@ -643,11 +553,14 @@ def main() -> None:
             axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
             #axs.legend(loc="upper left",fontsize=6)
 
-            save_fig_path = (save_path/f"sim_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfsall_{SIM_TAG}.png")
+            save_fig_path = (save_path
+                /(f"sim_straincom_{STRAIN_COMP_STRS[cc]}"
+                +f"_ptcdfsall_{SIM_TAG}.png"))
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
-        print("Plotting all sim-exp comparison cdfs for key points on common coords...")
+        print("Plotting all sim-exp comparison cdfs for "
+            +"key points on common coords...")
         for cc in comps:
             pp = mavm_inds[cc]
             fig, axs=plt.subplots(1,1,
@@ -668,7 +581,7 @@ def main() -> None:
             sim_cdf_high = stats.ecdf(sim_strain_common[max_e,:,pp,cc]).cdf
             sim_cdf_low = stats.ecdf(sim_strain_common[min_e,:,pp,cc]).cdf
             axs.fill_betweenx(sim_cdf_high.probabilities,
-                            sim_cdf_low .quantiles,
+                            sim_cdf_low.quantiles,
                             sim_cdf_high.quantiles,
                             color=sim_c,
                             alpha=0.2)
@@ -677,6 +590,18 @@ def main() -> None:
             axs.ecdf(exp_strain_common[:,pp,cc]
                     ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                     label="exp.")
+
+            exp_cdf_high = stats.ecdf(
+                exp_strain_common[:,pp,cc]+ id_err_field_flat[1,pp,cc]
+            ).cdf
+            exp_cdf_low = stats.ecdf(
+                exp_strain_common[:,pp,cc]+ id_err_field_flat[0,pp,cc]
+            ).cdf
+            axs.fill_betweenx(exp_cdf_low.probabilities,
+                              exp_cdf_low .quantiles,
+                              exp_cdf_high.quantiles,
+                              color=exp_c,
+                              alpha=0.2)
 
             this_coord = coords_common[mavm_inds[cc],:]
             title_str = f"(x,y)=({this_coord[0]:.2f},{-1*this_coord[1]:.2f})"
@@ -687,12 +612,17 @@ def main() -> None:
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                        /f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_ptcdfs_{SIM_TAG}.png")
+                        /(f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_"
+                        +f"ptcdfs_{SIM_TAG}.png"))
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-    # plt.close("all")
+    #///////////////////////////////////////////////////////////////////////////
+    plt.show()
+    return
+    #///////////////////////////////////////////////////////////////////////////
 
-
+    plt.close("all")
+    
     #---------------------------------------------------------------------------
     # Calculate MAVM at key points
 
@@ -821,7 +751,8 @@ def main() -> None:
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            /f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png")
+            /(f"exp{EXP_TAG}_straincom_"
+            +f"{STRAIN_COMP_STRS[cc]}_allmavm_{SIM_TAG}.png"))
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
@@ -862,8 +793,10 @@ def main() -> None:
                  ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
 
         axs.fill_betweenx(mavm_lims[aa]["max"]["F_Y"],
-                          mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
-                          mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+                          mavm_lims[aa]["min"]["F_"] 
+                            - mavm_lims[aa]["min"]["d-"],
+                          mavm_lims[aa]["max"]["F_"] 
+                            + mavm_lims[aa]["max"]["d+"],
                           color=mavm_c,
                           alpha=0.2)
 
@@ -876,7 +809,8 @@ def main() -> None:
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            / f"exp{EXP_TAG}_straincom_{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
+            / f"exp{EXP_TAG}_straincom_"
+            +f"{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     plt.close("all")
@@ -884,12 +818,18 @@ def main() -> None:
     #--------------------------------------------------------------------------
     # MAVM FIELD CALCULATION
     FORCE_MAVM_MAP_CALC = False
-    mavm_d_plus_path = temp_path / f"mavm_d_plus_exp{EXP_TAG}_sim{SIM_TAG}.npy"
-    mavm_d_minus_path = temp_path / f"mavm_d_minus_exp{EXP_TAG}_sim{SIM_TAG}.npy"
-    mavm_d_plus_cdf_pts_path = temp_path / f"mavm_d_plus_cdf_pts_exp{EXP_TAG}_sim{SIM_TAG}.npy"
-    mavm_d_minus_cdf_pts_path = temp_path / f"mavm_d_minus_cdf_pts_exp{EXP_TAG}_sim{SIM_TAG}.npy"
-    mavm_d_plus_cdf_prob_path = temp_path / f"mavm_d_plus_cdf_prob_exp{EXP_TAG}_sim{SIM_TAG}.npy"
-    mavm_d_minus_cdf_prob_path = temp_path / f"mavm_d_minus_cdf_prob_exp{EXP_TAG}_sim{SIM_TAG}.npy"
+    mavm_d_plus_path = (temp_path 
+        / f"mavm_d_plus_exp{EXP_TAG}_sim{SIM_TAG}.npy")
+    mavm_d_minus_path = (temp_path 
+        / f"mavm_d_minus_exp{EXP_TAG}_sim{SIM_TAG}.npy")
+    mavm_d_plus_cdf_pts_path = (temp_path 
+        / f"mavm_d_plus_cdf_pts_exp{EXP_TAG}_sim{SIM_TAG}.npy")
+    mavm_d_minus_cdf_pts_path = (temp_path 
+        / f"mavm_d_minus_cdf_pts_exp{EXP_TAG}_sim{SIM_TAG}.npy")
+    mavm_d_plus_cdf_prob_path = (temp_path 
+        / f"mavm_d_plus_cdf_prob_exp{EXP_TAG}_sim{SIM_TAG}.npy")
+    mavm_d_minus_cdf_prob_path = (temp_path 
+        / f"mavm_d_minus_cdf_prob_exp{EXP_TAG}_sim{SIM_TAG}.npy")
 
     # NOTE:
     # - Only have aleatory for field data no epistemic
@@ -1101,7 +1041,8 @@ def main() -> None:
 
 
             save_fig_path = (save_path
-                / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_cdfsonly.png")
+                / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_"
+                +"strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_cdfsonly.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
             #-------------------------------------------------------------------
@@ -1154,7 +1095,8 @@ def main() -> None:
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_simonly.png")
+                / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_"
+                +f"strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_simonly.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
             #-------------------------------------------------------------------
@@ -1211,7 +1153,8 @@ def main() -> None:
             axs.legend(loc="upper left",fontsize=6)
 
             save_fig_path = (save_path
-                / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_ALL.png")
+                / f"mavm_exp{EXP_TAG}_sim{SIM_TAG}_"
+                + f"strain_{STRAIN_COMP_STRS[cc]}_pt{ii}_ALL.png")
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
 
