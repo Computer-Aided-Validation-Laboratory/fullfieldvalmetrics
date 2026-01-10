@@ -265,6 +265,8 @@ def main() -> None:
 
     tag_dict = {"min":"Min.","max":"Max.","med":"Med."}
 
+    # err = ID - FE, FE = ID - err => TRUTH = EXP - err
+    # err = FE - ID, FE = ID + err => TRUTH = EXP + err
     for kk in fe_strain_grid:
         fe_field_plot = fe_strain_grid[kk]
         id_field_plot = id_strain_grid[kk]
@@ -368,7 +370,32 @@ def main() -> None:
             save_fig_path = save_path / save_name
 
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-                  
+
+    #---------------------------------------------------------------------------
+    # Save Systematic Error Maps to Disk 
+    # err = ID - FE, FE = ID - err => TRUTH = EXP - err
+    # **err = FE - ID, FE = ID + err => TRUTH = EXP + err**
+    print(80*"-")
+    print("ERROR FIELD CALCULATION")
+    print("ERR = FE - ID => FE = ID + ERR")
+    print("TRUTH = EXP + ERR")
+    
+    err_field_shape = (2,) + grid_shape + (3,)
+    err_field = np.zeros(err_field_shape,dtype=np.float64)
+    kk = "max"
+    err_field[1,:,:,:] = fe_strain_grid[kk] - id_strain_grid[kk] # MAX
+    kk = "min"
+    err_field[0,:,:,:] = fe_strain_grid[kk] - id_strain_grid[kk] # MIN
+
+    print("shape=([min,max],grid_y,grid_x,strain[xx,yy,xy])")
+    print(f"{err_field.shape=}")
+    print()
+    print("Saving FE-ID error field to file.")
+    print()
+    
+    save_name = f"strain_err_field_fe_take_id_{SIM_TAG}.npy"
+    np.save(FE_DIR / save_name,err_field)     
+        
     #---------------------------------------------------------------------------
     print(80*"-")
     print("COMPLETE.")
