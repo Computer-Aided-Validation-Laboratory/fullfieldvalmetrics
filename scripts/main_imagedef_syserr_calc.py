@@ -138,40 +138,46 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM: Transform simulation coords
     # NOTE: field arrays have shape=(n_doe_samps,n_pts,n_comps)
-    print(80*"-")
-    print("fe: Fitting transformation matrix...")
+#     print(80*"-")
+#     print("FE: Fitting transformation matrix...")
+# 
+#     # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
+#     fe_to_world_mat = vm.fit_coord_matrix(fe_coords)
+#     world_to_fe_mat = np.linalg.inv(fe_to_world_mat)
+#     print("FE to world matrix:")
+#     print(fe_to_world_mat)
+#     print()
+#     print("World to sim matrix:")
+#     print(world_to_fe_mat)
+#     print()
+# 
+#     print("Adding w coord and rotating sim coords")
+#     fe_with_w = np.hstack([fe_coords,
+#                             np.ones([fe_coords.shape[0],1])])
+#     print(f"{fe_with_w.shape=}")
+# 
+#     fe_coords = np.matmul(world_to_fe_mat,fe_with_w.T).T
+#     print(f"{fe_coords.shape=}")
+# 
+#     print("Returning sim coords by removing w coord:")
+#     fe_coords = fe_coords[:,:-1]
+#     print(f"{fe_coords.shape=}")
+#     del fe_with_w
+#     print()
 
-    # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
-    fe_to_world_mat = vm.fit_coord_matrix(fe_coords)
-    world_to_fe_mat = np.linalg.inv(fe_to_world_mat)
-    print("FE to world matrix:")
-    print(fe_to_world_mat)
-    print()
-    print("World to sim matrix:")
-    print(world_to_fe_mat)
-    print()
-
-    print("Adding w coord and rotating sim coords")
-    fe_with_w = np.hstack([fe_coords,
-                            np.ones([fe_coords.shape[0],1])])
-    print(f"{fe_with_w.shape=}")
-
-    fe_coords = np.matmul(world_to_fe_mat,fe_with_w.T).T
-    print(f"{fe_coords.shape=}")
-
-    print("Returning sim coords by removing w coord:")
-    fe_coords = fe_coords[:,:-1]
-    print(f"{fe_coords.shape=}")
-    del fe_with_w
-    print()
-
+    # NOTE: Just apply the shift in y to the coords from the matrix above
+    fe_coords[:,1] = -(fe_coords[:,1]-6.0) 
+    # NOTE: Seems like the sign of the shear is flipped??? Try flipping it back 
+    for kk in fe_strain:
+        fe_strain[kk][:,2] = -fe_strain[kk][:,2]
     
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
     PLOT_COORD_COMP = False
-
+    SCALE_AXES = False
+    
     if PLOT_COORD_COMP:
-        down_samp: int = 1
+        down_samp: int = 2
  
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
@@ -191,6 +197,16 @@ def main() -> None:
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
+
+        # Scale axes to their relative sizes
+        if SCALE_AXES:
+            x_limits = ax.get_xlim3d()
+            y_limits = ax.get_ylim3d()
+            z_limits = ax.get_zlim3d()
+            x_range = abs(x_limits[1] - x_limits[0])
+            y_range = abs(y_limits[1] - y_limits[0])
+            z_range = abs(z_limits[1] - z_limits[0])
+            ax.set_box_aspect((x_range, y_range, z_range))
 
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -254,7 +270,6 @@ def main() -> None:
         id_strain_grid[kk] = id_strain_temp
         print(f"{kk=}, {fe_strain_grid[kk].shape=}, "
               +f"{id_strain_grid[kk].shape=}")
-
         
     #---------------------------------------------------------------------------
     # Figure comparing fields
