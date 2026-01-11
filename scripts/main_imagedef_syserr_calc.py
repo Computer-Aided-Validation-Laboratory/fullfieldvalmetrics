@@ -270,6 +270,13 @@ def main() -> None:
         id_strain_grid[kk] = id_strain_temp
         print(f"{kk=}, {fe_strain_grid[kk].shape=}, "
               +f"{id_strain_grid[kk].shape=}")
+
+    # Set edge data-points to nan in the ID data to remove poor quality data
+    for kk in id_strain_grid:
+        id_strain_grid[kk][:2,:,:] = np.nan
+        id_strain_grid[kk][-1:,:,:] = np.nan
+        id_strain_grid[kk][:,:1,:] = np.nan
+        id_strain_grid[kk][:,-1:,:] = np.nan
         
     #---------------------------------------------------------------------------
     # Figure comparing fields
