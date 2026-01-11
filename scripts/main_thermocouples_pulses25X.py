@@ -272,14 +272,6 @@ def main() -> None:
                         dminus_max[kk] = this_mavm[stat_key]
                         dminus_max[kk]["stat_key"] = stat_key
 
-                    # if PLOT_MAVM_INDIVIDUAL:
-                    #     vm.mavm_figs(this_mavm[stat_key],
-                    #                 title_str=kk,
-                    #                 field_label=sens_ax_labels[ii],
-                    #                 field_tag=sens_tags[ii],
-                    #                 save_tag=stat_key,
-                    #                 save_path=save_path)
-
         if not np.any(np.isnan(exp_data_lims[kk][es])):
             mavm[kk] = this_mavm
 

@@ -65,7 +65,7 @@ def main() -> None:
         SIM_EPIS_N: int = 50 #50
         SIM_ALEA_N: int = 100 #100
 
-    COORD_TAG = "shift" # "shift" | "mat44"
+    COORD_TAG = "mat44" # "shift" | "mat44"
     
     #---------------------------------------------------------------------------
     # EXP: constants
@@ -398,7 +398,6 @@ def main() -> None:
     grid_shape = x_grid.shape
     grid_num_pts = x_grid.size
 
-
     sim_strain_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
     exp_strain_common_path = temp_path / f"exp{EXP_IND}_strain_common.npy"
 
@@ -657,8 +656,8 @@ def main() -> None:
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
     #///////////////////////////////////////////////////////////////////////////
-    plt.show()
-    return
+    #plt.show()
+    #return
     #///////////////////////////////////////////////////////////////////////////
 
     plt.close("all")
@@ -669,9 +668,11 @@ def main() -> None:
     print(80*"-")
     print("SIM-EXP: Calculating MAVM at key points")
 
-    sim_lim_keys = ("min","max")
+    stat_keys = ("min","max")
     mavm = {}
     mavm_lims = {}
+    dplus_max = {}
+    dminus_max = {}
 
     # sim_strain_common.shape=[epis,alea,point,comp]
     # exp_strain_common.shape=[alea,point,comp]
@@ -688,41 +689,60 @@ def main() -> None:
         dplus_cdf_sum = None
         dminus_cdf_sum = None
 
-        for kk in sim_lim_keys:
-            e_ind = sim_cdf_eind[kk][pp,cc]
-            this_mavm[kk] = vm.mavm(sim_strain_common[e_ind,:,pp,cc],
-                                    exp_strain_common[:,pp,cc])
+        for sim_key in stat_keys: # Loop over SIM: min, max
+            for ii,exp_key in enumerate(stat_keys): # Loop over EXP: min, max
+                 
+                e_ind = sim_cdf_eind[sim_key][pp,cc]
+                sim_strain_mavm = sim_strain_common[e_ind,:,pp,cc]
+                
+                # Correct for ID based systematic error
+                exp_strain_mavm = (exp_strain_common[:,pp,cc] 
+                                   + id_err_field_flat[ii,pp,cc]) 
 
-            check_upper = np.sum(this_mavm[kk]["F_"] + this_mavm[kk]["d+"])
-            check_lower = np.sum(this_mavm[kk]["F_"] - this_mavm[kk]["d-"])
+                comb_key = f"sim-{sim_key}_exp-{exp_key}"    
+                this_mavm[comb_key] = vm.mavm(sim_strain_mavm,exp_strain_mavm)
 
-            if dplus_cdf_sum is None:
-                dplus_cdf_sum = check_upper
-                this_mavm_lim["max"] = this_mavm[kk]
-            else:
-                if check_upper > dplus_cdf_sum:
+                check_upper = np.sum(this_mavm[comb_key]["F_"] 
+                                     + this_mavm[comb_key]["d+"])
+                check_lower = np.sum(this_mavm[comb_key]["F_"] 
+                                     - this_mavm[comb_key]["d-"])
+
+                if dplus_cdf_sum is None:
                     dplus_cdf_sum = check_upper
-                    this_mavm_lim["max"] = this_mavm[kk]
+                    this_mavm_lim["max"] = this_mavm[comb_key]
+                else:
+                    if check_upper > dplus_cdf_sum:
+                        dplus_cdf_sum = check_upper
+                        this_mavm_lim["max"] = this_mavm[comb_key]
 
-            if dminus_cdf_sum is None:
-                dminus_cdf_sum = check_lower
-                this_mavm_lim["min"] = this_mavm[kk]
-            else:
-                if check_lower < dminus_cdf_sum:
-                    dminus_cdf_sum = dminus_cdf_sum
-                    this_mavm_lim["min"] = this_mavm[kk]
+                if dminus_cdf_sum is None:
+                    dminus_cdf_sum = check_lower
+                    this_mavm_lim["min"] = this_mavm[comb_key]
+                else:
+                    if check_lower < dminus_cdf_sum:
+                        dminus_cdf_sum = dminus_cdf_sum
+                        this_mavm_lim["min"] = this_mavm[comb_key]
 
         mavm_lims[aa] = this_mavm_lim
         mavm[aa] = this_mavm
 
+    # NOTE:
+    # mavm: dict[str{xx,yy,xy},dict[comb_key,mavm_dict]]
+    # mavm_lims: dict[str{xx,yy,xy},dict[str{max,min},mavm_dict]]
 
-    #print(f"{mavm['x']['max']=}")
-    # print()
-    # print(mavm_lims.keys())
-    # print(mavm_lims["x"].keys())
-    # print(mavm_lims["x"]["max"].keys())
+    print(80*"-")
+    print("MAVM results dictionary:")
+    print()
+    print(f"{mavm.keys()=}")
+    print(f"{mavm['xx'].keys()=}")
+    print()
+    print(f"{mavm_lims.keys()=}")
+    print(f"{mavm_lims['xx'].keys()=}")
+    print(f"{mavm_lims['xx']['max'].keys()=}")
+    print()
+        
     plt.close("all")
-
+    
     print("Plotting MAVM at key points")
     for cc,aa in enumerate(ax_strs):
         pp = mavm_inds[cc]
@@ -755,30 +775,55 @@ def main() -> None:
                 ,ls="-",color=exp_c,linewidth=plot_opts.lw,
                 label="exp.")
 
+        exp_cdf_high = stats.ecdf(
+            exp_strain_common[:,pp,cc]+ id_err_field_flat[1,pp,cc]
+        ).cdf
+        exp_cdf_low = stats.ecdf(
+            exp_strain_common[:,pp,cc]+ id_err_field_flat[0,pp,cc]
+        ).cdf
+        axs.fill_betweenx(exp_cdf_low.probabilities,
+                          exp_cdf_low .quantiles,
+                          exp_cdf_high.quantiles,
+                          color=exp_c,
+                          alpha=0.2)
+
+        # MAVM
         mavm_c = "tab:red"
-        axs.plot(mavm[aa]["min"]["F_"] - mavm[aa]["min"]["d-"],
-                 mavm[aa]["min"]["F_Y"], label="min, d-",
+        axs.plot(mavm_lims[aa]["min"]["F_"] - mavm_lims[aa]["min"]["d-"],
+                 mavm_lims[aa]["min"]["F_Y"], label="min, d-",
                  ls="--",color=mavm_c,linewidth=plot_opts.lw*1.2)
-        axs.plot(mavm[aa]["min"]["F_"] + mavm[aa]["min"]["d+"],
-                 mavm[aa]["min"]["F_Y"], label="min, d+",
+        axs.plot(mavm_lims[aa]["min"]["F_"] + mavm_lims[aa]["min"]["d+"],
+                 mavm_lims[aa]["min"]["F_Y"], label="min, d+",
                  ls="-",color=mavm_c,linewidth=plot_opts.lw*1.2)
 
         mavm_c = "tab:green"
-        axs.plot(mavm[aa]["max"]["F_"] - mavm[aa]["max"]["d-"],
-                 mavm[aa]["max"]["F_Y"], label="max, d-",
+        axs.plot(mavm_lims[aa]["max"]["F_"] - mavm_lims[aa]["max"]["d-"],
+                 mavm_lims[aa]["max"]["F_Y"], label="max, d-",
                  ls="--",color= mavm_c,linewidth=plot_opts.lw*1.2)
 
-        axs.plot(mavm[aa]["max"]["F_"] + mavm[aa]["max"]["d+"],
-                 mavm[aa]["max"]["F_Y"], label="max, d+",
+        axs.plot(mavm_lims[aa]["max"]["F_"] + mavm_lims[aa]["max"]["d+"],
+                 mavm_lims[aa]["max"]["F_Y"], label="max, d+",
                  ls="-",color= mavm_c,linewidth=plot_opts.lw*1.2)
 
         print()
         print(80*"=")
         print(f"{aa=}")
-        print(f"{mavm[aa]['min']['d-']=}")
-        print(f"{mavm[aa]['min']['d+']=}")
-        print(f"{mavm[aa]['max']['d-']=}")
-        print(f"{mavm[aa]['max']['d+']=}")
+        print()
+        print(f"{mavm_lims[aa]['min']['d+']=}")
+        print(f"{mavm_lims[aa]['min']['d-']=}")
+        print()
+        print(f"{mavm_lims[aa]['max']['d+']=}")
+        print(f"{mavm_lims[aa]['max']['d-']=}")
+        print()
+        print(f"{mavm[aa]['sim-max_exp-max']['d+']=}")
+        print(f"{mavm[aa]['sim-min_exp-max']['d+']=}")
+        print(f"{mavm[aa]['sim-max_exp-min']['d+']=}")
+        print(f"{mavm[aa]['sim-min_exp-min']['d+']=}")
+        print()
+        print(f"{mavm[aa]['sim-max_exp-max']['d-']=}")
+        print(f"{mavm[aa]['sim-min_exp-max']['d-']=}")
+        print(f"{mavm[aa]['sim-max_exp-min']['d-']=}")
+        print(f"{mavm[aa]['sim-min_exp-min']['d-']=}")        
         print(80*"=")
         print()
 
@@ -849,15 +894,20 @@ def main() -> None:
         axs.legend(loc="upper left",fontsize=6)
 
         save_fig_path = (save_path
-            / f"exp{EXP_TAG}_straincom_"
-            +f"{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png")
+            / (f"exp{EXP_TAG}_straincom_"
+               +f"{STRAIN_COMP_STRS[cc]}_mavmlims_{SIM_TAG}.png"))
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
+    #///////////////////////////////////////////////////////////////////////////
+    #plt.show()   
+    #return
+    #///////////////////////////////////////////////////////////////////////////
     plt.close("all")
 
     #--------------------------------------------------------------------------
     # MAVM FIELD CALCULATION
-    FORCE_MAVM_MAP_CALC = False
+    FORCE_MAVM_MAP_CALC = True
+    
     mavm_d_plus_path = (temp_path 
         / f"mavm_d_plus_exp{EXP_TAG}_sim{SIM_TAG}.npy")
     mavm_d_minus_path = (temp_path 
@@ -896,12 +946,11 @@ def main() -> None:
         # pp: int    = point/coord
         # cc: int    = component index
 
-
-        sim_lim_keys = ("min","max")
+        stat_keys = ("min","max")
         mavm_lims = {}
 
-        analyse_pts = [1816,1716]
-        analyse_cmps = [1,]
+        #analyse_pts = [1816,1716]
+        #analyse_cmps = [1,]
 
         for pp in range(0,grid_num_pts): #analyse_pts
             print(f"Calculating MAVM for {pp}/{grid_num_pts}.")
@@ -909,7 +958,8 @@ def main() -> None:
             for cc in range(0,3): #analyse_cmps
 
                 # If the experimental data is nan then we set the mavm to nan
-                if np.count_nonzero(np.isnan(exp_strain_common[:,pp,cc])) > 0:
+                if ((np.count_nonzero(np.isnan(exp_strain_common[:,pp,cc])) > 0)
+                   or (np.count_nonzero(np.isnan(id_err_field_flat[:,pp,cc])) > 0)):
                     mavm_d_plus[pp,cc] = np.nan
                     mavm_d_minus[pp,cc] = np.nan
                     continue
@@ -919,49 +969,46 @@ def main() -> None:
                 dplus_cdf_sum = None
                 dminus_cdf_sum = None
 
-                for kk in sim_lim_keys: # "max" | "min"
-                    ee = sim_cdf_eind[kk][pp,cc]
-                    # print(80*"-")
-                    # print(f"{pp=}")
-                    # print(f"{cc=}")
-                    # print(f"{kk=}")
-                    # print(f"{ee=}")
-                    # print(80*"-")
+                for sim_key in stat_keys: # Loop over SIM: min, max
+                    for ii,exp_key in enumerate(stat_keys): # Loop over EXP: min, max
+                        ee = sim_cdf_eind[sim_key][pp,cc]
+                        sim_strain_mavm = sim_strain_common[ee,:,pp,cc]
+                        # Correct for ID based systematic error
+                        exp_strain_mavm = (exp_strain_common[:,pp,cc] 
+                                           + id_err_field_flat[ii,pp,cc])
 
-                    this_mavm[kk] = vm.mavm(sim_strain_common[ee,:,pp,cc],
-                                            exp_strain_common[:,pp,cc])
+                        kk = f"sim-{sim_key}_exp-{exp_key}"    
+                        this_mavm[kk] = vm.mavm(sim_strain_mavm,
+                                                exp_strain_mavm)
 
-                    # NOTE: have to sum then add d!!! Otherwise round off error
-                    check_upper = np.sum(this_mavm[kk]["F_"]) + this_mavm[kk]["d+"]
-                    if dplus_cdf_sum is None:
-                        #print("Set dplus cdf")
-                        dplus_cdf_sum = check_upper
-                        mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
-                        mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
-                        mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
-                    else:
-                        if check_upper > dplus_cdf_sum:
-                            #print("Update dplus cdf")
+                        # NOTE: have to sum then add d!!! Otherwise round off error
+                        check_upper = np.sum(this_mavm[kk]["F_"]) + this_mavm[kk]["d+"]
+                        if dplus_cdf_sum is None:
                             dplus_cdf_sum = check_upper
                             mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
                             mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
                             mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+                        else:
+                            if check_upper > dplus_cdf_sum:
+                                dplus_cdf_sum = check_upper
+                                mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
+                                mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                                mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
 
-                    check_lower = np.sum(this_mavm[kk]["F_"]) - this_mavm[kk]["d-"]
-                    if dminus_cdf_sum is None:
-                        #print("Set dminus cdf")
-                        dminus_cdf_sum = check_lower
-                        mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
-                        mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
-                        mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
-                    else:
-                        if check_lower < dminus_cdf_sum:
-                            #print("Update dplus cdf")
-                            dminus_cdf_sum = dminus_cdf_sum
+                        check_lower = np.sum(this_mavm[kk]["F_"]) - this_mavm[kk]["d-"]
+                        if dminus_cdf_sum is None:
+                            #print("Set dminus cdf")
+                            dminus_cdf_sum = check_lower
                             mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
                             mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
                             mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
-
+                        else:
+                            if check_lower < dminus_cdf_sum:
+                                #print("Update dplus cdf")
+                                dminus_cdf_sum = dminus_cdf_sum
+                                mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
+                                mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                                mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
 
         print("Saving MAVM calculation for faster loading.")
         np.save(mavm_d_plus_path,mavm_d_plus)
@@ -980,7 +1027,6 @@ def main() -> None:
         mavm_d_minus_cdf_prob = np.load(mavm_d_minus_cdf_prob_path)
 
     mavm_d_max = np.maximum(mavm_d_minus,mavm_d_plus)
-
 
     #--------------------------------------------------------------------------
     # MAVM FIELD PLOTS
@@ -1005,6 +1051,9 @@ def main() -> None:
                          field_str="strain",
                          unit_str=FIELD_UNIT_STR,
                          save_path=save_path)
+
+    plt.show()
+    return
 
     #---------------------------------------------------------------------------
     # Plot MAVM at follow up points
