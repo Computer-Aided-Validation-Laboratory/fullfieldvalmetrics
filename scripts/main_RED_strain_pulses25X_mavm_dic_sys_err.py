@@ -65,6 +65,8 @@ def main() -> None:
         SIM_EPIS_N: int = 50 #50
         SIM_ALEA_N: int = 100 #100
 
+    COORD_TAG = "shift" # "shift" | "mat44"
+    
     #---------------------------------------------------------------------------
     # EXP: constants
 
@@ -87,7 +89,7 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # Check directories exist and create output directories
-    temp_path = Path.cwd() / f"temp_exp_{EXP_TAG}_sim_{SIM_TAG}"
+    temp_path = Path.cwd() / f"temp_exp{EXP_TAG}_sim{SIM_TAG}_coord{COORD_TAG}"
     if not temp_path.is_dir():
         temp_path.mkdir()
 
@@ -99,7 +101,9 @@ def main() -> None:
             raise FileNotFoundError(f"{dd}: directory does not exist.")
 
     # SAVE PATH!
-    save_path = Path.cwd() / f"images_dic_pulse{EXP_TAG}_sim{SIM_TAG}_strain"
+    save_path = (Path.cwd() 
+                 / (f"images_dic_pulse{EXP_TAG}_sim{SIM_TAG}_"+
+                    f"coord{COORD_TAG}_strain"))
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 
@@ -264,8 +268,8 @@ def main() -> None:
     print(80*"-")
     print("SIM: Transforming coords")
 
-    USE_MAT44: bool = False
-    if USE_MAT44: 
+    
+    if COORD_TAG == "mat44": 
         # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
         sim_to_world_mat = vm.fit_coord_matrix(sim_coords)
         world_to_sim_mat = np.linalg.inv(sim_to_world_mat)
@@ -292,10 +296,16 @@ def main() -> None:
     else:
         # NOTE: Just apply the shift in y to the coords from the matrix above
         sim_coords[:,1] = -(sim_coords[:,1]-6.0) 
-        # NOTE: Seems like the sign of the shear is flipped in the new data??? 
-        # Might not be flipped for the old reduced data set. 
-        # sim_strain[:,2] = -sim_strain[:,2]
-   
+        # NOTE: Seems like the sign of the shear is flipped??? This seems to be
+        # the case when reviewing the Mat44 above. 
+        sim_strain[:,:,:,2] = -sim_strain[:,:,:,2]
+
+    sim_x_min = np.min(sim_coords[:,0])
+    sim_x_max = np.max(sim_coords[:,0])
+    sim_y_min = np.min(sim_coords[:,1])
+    sim_y_max = np.max(sim_coords[:,1])
+    extent = (sim_x_min,sim_x_max,sim_y_min,sim_y_max)
+
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
     PLOT_COORD_COMP = False
@@ -354,12 +364,6 @@ def main() -> None:
 
     tol = 1e-6
     scale = 1/tol
-
-    sim_x_min = np.min(sim_coords[:,0])
-    sim_x_max = np.max(sim_coords[:,0])
-    sim_y_min = np.min(sim_coords[:,1])
-    sim_y_max = np.max(sim_coords[:,1])
-
     round_arr = np.round(sim_coords[:,0] * scale) / scale
     num_elem_x = np.unique(round_arr)
     round_arr = np.round(sim_coords[:,1]* scale) / scale
@@ -384,6 +388,8 @@ def main() -> None:
     print(80*"-")
     print("SIM-EXP: interpolating to common grid")
 
+    FORCE_INTERP_COMMON: bool = False
+
     tol = 1e-6
     step = 0.5
     x_vec = np.arange(sim_x_min,sim_x_max+tol,step)
@@ -392,7 +398,6 @@ def main() -> None:
     grid_shape = x_grid.shape
     grid_num_pts = x_grid.size
 
-    FORCE_INTERP_COMMON = True
 
     sim_strain_common_path = temp_path / f"sim_strain_common_{SIM_TAG}.npy"
     exp_strain_common_path = temp_path / f"exp{EXP_IND}_strain_common.npy"
@@ -401,7 +406,8 @@ def main() -> None:
     # interpolate and then reshape back.
 
     sim_shape = sim_strain.shape
-    sim_strain = np.reshape(sim_strain,(SIM_EPIS_N*SIM_ALEA_N,sim_shape[2],sim_shape[3]))
+    sim_strain = np.reshape(sim_strain,
+                            (SIM_EPIS_N*SIM_ALEA_N,sim_shape[2],sim_shape[3]))
     print(f"{sim_shape=}")
     print(f"{sim_strain.shape=}")
     print()
@@ -476,7 +482,7 @@ def main() -> None:
     print("ERR = FE - ID => FE = ID + ERR")
     print("TRUTH = EXP + ERR")
     
-    id_err_file = f"strain_err_field_fe_take_id.npy"
+    id_err_file = f"strain_err_field_fe_take_id_coord_{COORD_TAG}.npy"
     id_err_field_grid = np.load(FE_DIR/id_err_file)
     id_err_field_flat = np.reshape(id_err_field_grid,(2,7000,3)) 
 
@@ -484,6 +490,31 @@ def main() -> None:
     print(f"{id_err_field_grid.shape=}")
     print(f"{id_err_field_flat.shape=}")
     print()
+
+    SHOW_ERR_GRID: bool = True
+
+    if SHOW_ERR_GRID:
+        max_ind: int = 1
+        
+        plot_opts = pyvale.sensorsim.PlotOptsGeneral()
+        fig_size = (plot_opts.a4_print_width,
+                    plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
+        fig,ax = plt.subplots(1,3,figsize=fig_size,layout='constrained')
+        fig.set_dpi(plot_opts.resolution)
+                
+        for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
+            field_str = FIELD_AX_STRS[ax_ind]
+    
+            image = ax[ax_ind].imshow(id_err_field_grid[max_ind,:,:,ax_ind],
+                                      extent=extent,
+                                      cmap="RdBu")
+            ax[ax_ind].set_title(
+                f"Image Def. Err. Field \n{field_str} [{FIELD_UNIT_STR}]",
+                fontsize=plot_opts.font_head_size, 
+                fontname=plot_opts.font_name)
+            cbar = plt.colorbar(image)
+
+        #plt.show()
     
     #---------------------------------------------------------------------------
     # SIM-EXP: Calculate mavm at a few key points
@@ -529,9 +560,10 @@ def main() -> None:
     print(f"{sim_cdf_eind['min'][0,0]=}")
     print()
 
-    PLOT_COMMON_PT_CDFS = True
+    PLOT_COMMON_PT_CDFS_SIM_ONLY = False
+    PLOT_COMMON_PT_CDFS_SIM_EXP = True
 
-    if PLOT_COMMON_PT_CDFS:
+    if PLOT_COMMON_PT_CDFS_SIM_ONLY:
         print("Plotting all sim cdfs and limit cdfs for key points "
               +"on common coords...")
         for cc in comps:
@@ -566,7 +598,7 @@ def main() -> None:
                 +f"_ptcdfsall_{SIM_TAG}.png"))
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-
+    if PLOT_COMMON_PT_CDFS_SIM_EXP:
         print("Plotting all sim-exp comparison cdfs for "
             +"key points on common coords...")
         for cc in comps:
@@ -961,7 +993,7 @@ def main() -> None:
 
     ax_strs = ("xx","yy","xy")
     ax_inds = (0,1,2)
-    extent = (sim_x_min,sim_x_max,sim_y_min,sim_y_max)
+    
     for ii,ss in zip(ax_inds,ax_strs):
         vm.plot_mavm_map(mavm_d_plus,
                          mavm_d_minus,
@@ -1173,13 +1205,13 @@ def main() -> None:
     ax_ind = yy
     scale_cbar = True
 
-    sim_x_min = np.min(sim_coords[:,0])
-    sim_x_max = np.max(sim_coords[:,0])
-    sim_y_min = np.min(sim_coords[:,1])
-    sim_y_max = np.max(sim_coords[:,1])
-
     for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
         field_str = FIELD_AX_STRS[ax_ind]
+
+        sim_x_min = np.min(sim_coords[:,0])
+        sim_x_max = np.max(sim_coords[:,0])
+        sim_y_min = np.min(sim_coords[:,1])
+        sim_y_max = np.max(sim_coords[:,1])
 
         step = 0.5
         x_vec = np.arange(sim_x_min,sim_x_max,step)

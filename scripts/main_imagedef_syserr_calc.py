@@ -44,7 +44,11 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM: constants
     SIM_TAG = "imagedefv3"
+    
+    COORD_TAG = "shift" # "shift" | "mat44"
+    
     FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v3"
+    RED_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X" 
     ID_DIR = Path.cwd()/ "STC_ProbSim_ImageDef_FieldsFull_25X_v3"
     
     #---------------------------------------------------------------------------
@@ -138,38 +142,39 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # SIM: Transform simulation coords
     # NOTE: field arrays have shape=(n_doe_samps,n_pts,n_comps)
-#     print(80*"-")
-#     print("FE: Fitting transformation matrix...")
-# 
-#     # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
-#     fe_to_world_mat = vm.fit_coord_matrix(fe_coords)
-#     world_to_fe_mat = np.linalg.inv(fe_to_world_mat)
-#     print("FE to world matrix:")
-#     print(fe_to_world_mat)
-#     print()
-#     print("World to sim matrix:")
-#     print(world_to_fe_mat)
-#     print()
-# 
-#     print("Adding w coord and rotating sim coords")
-#     fe_with_w = np.hstack([fe_coords,
-#                             np.ones([fe_coords.shape[0],1])])
-#     print(f"{fe_with_w.shape=}")
-# 
-#     fe_coords = np.matmul(world_to_fe_mat,fe_with_w.T).T
-#     print(f"{fe_coords.shape=}")
-# 
-#     print("Returning sim coords by removing w coord:")
-#     fe_coords = fe_coords[:,:-1]
-#     print(f"{fe_coords.shape=}")
-#     del fe_with_w
-#     print()
+    print(80*"-")
+    print("FE: Transforming Coords")
 
-    # NOTE: Just apply the shift in y to the coords from the matrix above
-    fe_coords[:,1] = -(fe_coords[:,1]-6.0) 
-    # NOTE: Seems like the sign of the shear is flipped??? Try flipping it back 
-    for kk in fe_strain:
-        fe_strain[kk][:,2] = -fe_strain[kk][:,2]
+    if COORD_TAG == "mat44":
+        # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
+        fe_to_world_mat = vm.fit_coord_matrix(fe_coords)
+        world_to_fe_mat = np.linalg.inv(fe_to_world_mat)
+        print("FE to world matrix:")
+        print(fe_to_world_mat)
+        print()
+        print("World to sim matrix:")
+        print(world_to_fe_mat)
+        print()
+
+        print("Adding w coord and rotating sim coords")
+        fe_with_w = np.hstack([fe_coords,
+                                np.ones([fe_coords.shape[0],1])])
+        print(f"{fe_with_w.shape=}")
+
+        fe_coords = np.matmul(world_to_fe_mat,fe_with_w.T).T
+        print(f"{fe_coords.shape=}")
+
+        print("Returning sim coords by removing w coord:")
+        fe_coords = fe_coords[:,:-1]
+        print(f"{fe_coords.shape=}")
+        del fe_with_w
+        print()
+    else:
+        # NOTE: Just apply the shift in y to the coords from the matrix above
+        fe_coords[:,1] = -(fe_coords[:,1]-6.0) 
+        # NOTE: Seems like the sign of the shear is flipped??? Try flipping it back 
+        for kk in fe_strain:
+            fe_strain[kk][:,2] = -fe_strain[kk][:,2]
     
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
@@ -393,7 +398,8 @@ def main() -> None:
             #     for spine in aa.spines.values():
             #         spine.set_visible(False)
 
-            save_name = f"case_{kk}_id_vs_fe_{SIM_TAG}_strain_{ax_str}.png"
+            save_name = (f"case_{kk}_id_vs_fe_coord_{COORD_TAG}_{SIM_TAG}_"
+                         +f"strain_{ax_str}.png")
             save_fig_path = save_path / save_name
 
             fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
@@ -420,9 +426,10 @@ def main() -> None:
     print("Saving FE-ID error field to file.")
     print()
     
-    save_name = f"strain_err_field_fe_take_id.npy"
+    save_name = f"strain_err_field_fe_take_id_coord_{COORD_TAG}.npy"
     np.save(FE_DIR / save_name,err_field)     
-        
+    np.save(RED_DIR / save_name,err_field)    
+
     #---------------------------------------------------------------------------
     print(80*"-")
     print("COMPLETE.")
