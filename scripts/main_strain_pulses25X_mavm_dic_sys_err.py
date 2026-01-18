@@ -264,7 +264,7 @@ def main() -> None:
     print(80*"-")
     print("SIM: Transforming coords")
 
-    USE_MAT44: bool = False
+    USE_MAT44: bool = True
     if USE_MAT44: 
         # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
         sim_to_world_mat = vm.fit_coord_matrix(sim_coords)
@@ -280,7 +280,8 @@ def main() -> None:
         sim_with_w = np.hstack([sim_coords,
                                 np.ones([sim_coords.shape[0],1])])
         print(f"{sim_with_w.shape=}")
-
+        
+        
         sim_coords = np.matmul(world_to_sim_mat,sim_with_w.T).T
         print(f"{sim_coords.shape=}")
 
@@ -290,15 +291,17 @@ def main() -> None:
         del sim_with_w
         print()
     else:
+        # pass
         # NOTE: Just apply the shift in y to the coords from the matrix above
         sim_coords[:,1] = -(sim_coords[:,1]-6.0) 
         # NOTE: Seems like the sign of the shear is flipped in the new data??? 
         # Might not be flipped for the old reduced data set. 
         # sim_strain[:,2] = -sim_strain[:,2]
-   
+
+    return
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
-    PLOT_COORD_COMP = False
+    PLOT_COORD_COMP = True
 
     if PLOT_COORD_COMP:
         down_samp: int = 5
@@ -335,6 +338,7 @@ def main() -> None:
         ax.set_ylabel("Y")
         plt.show()
 
+    return
     #---------------------------------------------------------------------------
     # Average fields from experiment and simulation to plot the difference
     print("\nAveraging experiment steady state and "

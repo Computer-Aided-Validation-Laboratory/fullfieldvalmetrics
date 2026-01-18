@@ -17,7 +17,7 @@ def main() -> None:
 
     PARA: int = 8
     #===========================================================================
-    EXP_IND: int = 2
+    EXP_IND: int = 0
     #===========================================================================
 
     #---------------------------------------------------------------------------
@@ -145,6 +145,7 @@ def main() -> None:
     print(80*"-")
     print("FE: Transforming Coords")
 
+    # NOTE: shift is correct based on coordinate system reasoning
     if COORD_TAG == "mat44":
         # Expects shape=(n_pts,coord[x,y,z]), outputs 4x4 transform matrix
         fe_to_world_mat = vm.fit_coord_matrix(fe_coords)
@@ -170,12 +171,28 @@ def main() -> None:
         del fe_with_w
         print()
     else:
+        # NOTE: this is actually correct! 
+        # - Simulations coords are 22,33,23 -> yy,zz,yz
+        # - Y sim -> X image, Z sim -> -Y and X sim -> -Z image
+        # BUT! - So flip Y and Z
+        
         # NOTE: Just apply the shift in y to the coords from the matrix above
         fe_coords[:,1] = -(fe_coords[:,1]-6.0) 
-        # NOTE: Seems like the sign of the shear is flipped??? Try flipping it back 
+        # NOTE: Seems like the sign of the shear is flipped? Try flipping it back 
+        # UPDATE: this is correct, y sign is flipped but z is not =>
+        # shear sign flips
         for kk in fe_strain:
             fe_strain[kk][:,2] = -fe_strain[kk][:,2]
-    
+
+    # Image coords: 
+    # RH: Yaxis -> down, Xaxis -> to the right, Zaxis -> into the image 
+    # FE:
+    # Yaxis -> x from DIC, 
+    # Xaxis -> -z from DIC, 
+    # Zaxis -> -y from DIC,
+    # X is out of plane for the actual Z, given Y and Z   
+    # Actual mesh coords Y->X,Z->-Y 
+
     #---------------------------------------------------------------------------
     # EXP-SIM Comparison of coords
     PLOT_COORD_COMP = False

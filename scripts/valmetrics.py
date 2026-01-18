@@ -963,6 +963,14 @@ def mavm(model_data: np.ndarray,
         print(f"{d_minus=}")
         print()
 
+    # NOTE:
+    # F= simulation
+    # S= experiment
+    # d+ : 
+    # d- :
+    # Sn_conf: Experiment confidence interval
+    # F_ : Simulation CDF values on the X axis
+    # F_Y: Simulation CDF probabilities on the Y axis
     output_dict = {"model_cdf":model_cdf,
                    "exp_cdf":exp_cdf,
                    "d+":d_plus,
