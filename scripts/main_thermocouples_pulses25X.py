@@ -233,8 +233,8 @@ def main() -> None:
     print("Calculating MAVM...")
     for ii,kk in enumerate(exp_data_lims): # Loop over sensors: TCs + CV
 
-        dplus_max_val = 0
-        dminus_max_val = 0
+        sim_cdf_sum_upper = None
+        sim_cdf_sum_lower = None
         this_mavm = {}
 
         for es in mavm_keys: # Loop over EXP stats: min,max
@@ -262,15 +262,28 @@ def main() -> None:
                     print(f"{this_mavm[stat_key]['d-']=}")
                     print(80*"-")
 
-                    if this_mavm[stat_key]["d+"] > dplus_max_val:
-                        dplus_max_val = this_mavm[stat_key]["d+"]
-                        dplus_max[kk] = this_mavm[stat_key]
-                        dplus_max[kk]["stat_key"] = stat_key
+                    check_upper = np.sum(this_mavm[stat_key]["F_"] 
+                                         + this_mavm[stat_key]["d+"])
+                    check_lower = np.sum(this_mavm[stat_key]["F_"] 
+                                         - this_mavm[stat_key]["d-"])
 
-                    if this_mavm[stat_key]["d-"] > dminus_max_val:
-                        dminus_max_val = this_mavm[stat_key]["d-"]
-                        dminus_max[kk] = this_mavm[stat_key]
-                        dminus_max[kk]["stat_key"] = stat_key
+                    if ss == "max":
+                        if ((sim_cdf_sum_upper is None) or 
+                            (check_upper > sim_cdf_sum_upper)):
+                            sim_cdf_sum_upper = check_upper
+                            
+                            dplus_max_val = this_mavm[stat_key]["d+"]
+                            dplus_max[kk] = this_mavm[stat_key]
+                            dplus_max[kk]["stat_key"] = stat_key
+
+                    if ss == "min":
+                        if ((sim_cdf_sum_lower is None) or 
+                            (check_lower < sim_cdf_sum_lower)):
+                            sim_cdf_sum_lower = check_lower
+                            
+                            dminus_max_val = this_mavm[stat_key]["d-"]
+                            dminus_max[kk] = this_mavm[stat_key]
+                            dminus_max[kk]["stat_key"] = stat_key
 
         if not np.any(np.isnan(exp_data_lims[kk][es])):
             mavm[kk] = this_mavm
@@ -287,6 +300,8 @@ def main() -> None:
     #---------------------------------------------------------------------------
     # FIGURE: exp and sim CDFS with epistemic errors
 
+    plt.close("all")
+    
     print(80*"-")
     print("Plotting combined MAVM figures...")
     fig_ind += 1
@@ -417,7 +432,7 @@ def main() -> None:
         save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-
+    
     plt.close("all")
     #---------------------------------------------------------------------------
     # FIGURES: cleaner d+/- extremes
@@ -428,58 +443,25 @@ def main() -> None:
             continue
 
         #-----------------------------------------------------------------------
-        # FIG 1: d+ max
+        # FIG 1: d outer limits with exp shown
         fig,axs=plt.subplots(1,1,
                          figsize=plot_opts.single_fig_size_landscape,
                          layout="constrained")
         fig.set_dpi(plot_opts.resolution)
 
+        axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,
+                 ls="-",color=sim_c,label="sim. nom.",linewidth=plot_opts.lw)
         axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
-                 ls="-",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
+                 ls=":",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
         axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
-                 ls="-",color=sim_c,linewidth=plot_opts.lw)
+                 ls=":",color=sim_c,linewidth=plot_opts.lw)
 
-        axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
-                         sim_cdfs_lims[kk]["min"].quantiles,
-                         sim_cdfs_lims[kk]["max"].quantiles,
-                         color=sim_c,
-                         alpha=0.2,
-                         ls=":")
-        dp_c = "black"
-        axs.plot(dplus_max[kk]["F_"] + dplus_max[kk]["d+"],
-                 dplus_max[kk]["F_Y"],
-                 ls=":",linewidth=plot_opts.lw*1.2, label="d+",
-                 color=dp_c)
-        axs.plot(dplus_max[kk]["F_"] - dplus_max[kk]["d-"],
-                 dplus_max[kk]["F_Y"],
-                 ls="--",linewidth=plot_opts.lw*1.2, label="d-",
-                 color=dp_c)
-
-
-        title_str = f"{kk}, MAVM d+ maximised"
-        #axs.legend(loc="upper left",fontsize=6)
-        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
-        axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
-        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-
-        fig_name = f"{fig_ind}_mavm_dplusmax_{kk}.png"
-        ax_lims[fig_name] = axs.get_xlim()
-        save_fig_path = save_path / fig_name
-        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
-        plt.close(fig)
-
-        #-----------------------------------------------------------------------
-        # FIG 2: d- max
-        fig,axs=plt.subplots(1,1,
-                         figsize=plot_opts.single_fig_size_landscape,
-                         layout="constrained")
-        fig.set_dpi(plot_opts.resolution)
-
-        axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
-                 ls="-",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
-        axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
-                 ls="-",color=sim_c,linewidth=plot_opts.lw)
+        axs.ecdf(exp_cdfs_lims[kk]["nom"].quantiles,
+                 ls="-",color=exp_c,label="exp. nom.",linewidth=plot_opts.lw)
+        axs.ecdf(exp_cdfs_lims[kk]["max"].quantiles,
+                 ls=":",color=exp_c,label="exp. lims.",linewidth=plot_opts.lw)
+        axs.ecdf(exp_cdfs_lims[kk]["min"].quantiles,
+                 ls=":",color=exp_c,linewidth=plot_opts.lw)
 
         axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
                          sim_cdfs_lims[kk]["min"].quantiles,
@@ -488,56 +470,21 @@ def main() -> None:
                          alpha=0.2,
                          ls=":")
 
-        dm_c = "black"
-        axs.plot(dminus_max[kk]["F_"] + dminus_max[kk]["d+"],
-                 dminus_max[kk]["F_Y"],
-                 ls=":",linewidth=plot_opts.lw*1.2, label="d+",
-                 color=dm_c)
-        axs.plot(dminus_max[kk]["F_"] - dminus_max[kk]["d-"],
-                 dminus_max[kk]["F_Y"],
-                 ls="--",linewidth=plot_opts.lw*1.2, label="d-",
-                 color=dm_c)
+        axs.fill_betweenx(exp_cdfs_lims[kk]["nom"].probabilities,
+                         exp_cdfs_lims[kk]["min"].quantiles,
+                         exp_cdfs_lims[kk]["max"].quantiles,
+                         color=exp_c,
+                         alpha=0.2,
+                         ls=":")
 
-
-        title_str = f"{kk}, MAVM d- maximised"
-        #axs.legend(loc="upper left",fontsize=6)
-        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
-        axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
-        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
-
-        fig_name = f"{fig_ind+1}_mavm_dminusmax_{kk}.png"
-        ax_lims[fig_name] = axs.get_xlim()
-        save_fig_path = save_path / fig_name
-        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
-
-        plt.close(fig)
-
-        #-----------------------------------------------------------------------
-        # FIG 3: d outer limits
-        fig,axs=plt.subplots(1,1,
-                         figsize=plot_opts.single_fig_size_landscape,
-                         layout="constrained")
-        fig.set_dpi(plot_opts.resolution)
-
-        if ((np.mean(dplus_max[kk]["F_"]) + dplus_max[kk]["d+"])
-            > (np.mean(dminus_max[kk]["F_"]) + dminus_max[kk]["d+"])):
-            dplus_plot = dplus_max[kk]
-        else:
-            dplus_plot = dminus_max[kk]
-
-        if ((np.mean(dplus_max[kk]["F_"]) - dplus_max[kk]["d-"])
-             < (np.mean(dminus_max[kk]["F_"]) - dminus_max[kk]["d-"])):
-            dminus_plot = dplus_max[kk]
-        else:
-            dminus_plot = dminus_max[kk]
-
+        dplus_plot = dplus_max[kk]
+        dminus_plot = dminus_max[kk]
         axs.fill_betweenx(dplus_plot["F_Y"],
-                         dminus_plot["F_"] - dminus_plot["d-"],
-                         dplus_plot["F_"] + dplus_plot["d+"],
+                          dminus_plot["F_"] - dminus_plot["d-"],
+                          dplus_plot["F_"] + dplus_plot["d+"],
                          color="black",
                          alpha=0.2,
                          ls=":")
-
 
         axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
                  ls="-",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
@@ -562,13 +509,77 @@ def main() -> None:
                  color=dm_c)
 
 
-        title_str = f"{kk}, MAVM limits"
+        title_str = f"{kk}"
         #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(title_str,fontsize=plot_opts.font_head_size)
         axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
         axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
 
-        fig_name = f"{fig_ind+2}_dextremes_wcdfs_{kk}.png"
+        fig_name = f"{fig_ind}_dextremes_wexpcdfs_{kk}.png"
+        ax_lims[fig_name] = axs.get_xlim()
+        save_fig_path = save_path / fig_name
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+        #-----------------------------------------------------------------------
+        # FIG 2: d outer limits with only sim shown
+        fig,axs=plt.subplots(1,1,
+                         figsize=plot_opts.single_fig_size_landscape,
+                         layout="constrained")
+        fig.set_dpi(plot_opts.resolution)
+
+        # axs.ecdf(sim_cdfs_lims[kk]["nom"].quantiles,
+        #          ls="-",color=sim_c,label="sim. nom.",linewidth=plot_opts.lw)
+        axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
+                 ls=":",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
+        axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
+                 ls=":",color=sim_c,linewidth=plot_opts.lw)
+
+        axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
+                         sim_cdfs_lims[kk]["min"].quantiles,
+                         sim_cdfs_lims[kk]["max"].quantiles,
+                         color=sim_c,
+                         alpha=0.2,
+                         ls=":")
+
+        dplus_plot = dplus_max[kk]
+        dminus_plot = dminus_max[kk]
+        axs.fill_betweenx(dplus_plot["F_Y"],
+                          dminus_plot["F_"] - dminus_plot["d-"],
+                          dplus_plot["F_"] + dplus_plot["d+"],
+                         color="black",
+                         alpha=0.2,
+                         ls=":")
+
+        axs.ecdf(sim_cdfs_lims[kk]["max"].quantiles,
+                 ls="-",color=sim_c,label="sim. lims.",linewidth=plot_opts.lw)
+        axs.ecdf(sim_cdfs_lims[kk]["min"].quantiles,
+                 ls="-",color=sim_c,linewidth=plot_opts.lw)
+
+        axs.fill_betweenx(sim_cdfs_lims[kk]["nom"].probabilities,
+                         sim_cdfs_lims[kk]["min"].quantiles,
+                         sim_cdfs_lims[kk]["max"].quantiles,
+                         color=sim_c,
+                         alpha=0.2,
+                         ls=":")
+
+        dm_c = "black"
+        axs.plot(dplus_plot["F_"] + dplus_plot["d+"],
+                 dplus_plot["F_Y"],
+                 ls=":",linewidth=plot_opts.lw*1.2, label="d+",
+                 color=dm_c)
+        axs.plot(dminus_plot["F_"] - dminus_plot["d-"],
+                 dminus_plot["F_Y"],
+                 ls="--",linewidth=plot_opts.lw*1.2, label="d-",
+                 color=dm_c)
+
+
+        title_str = f"{kk}"
+        #axs.legend(loc="upper left",fontsize=6)
+        axs.set_title(title_str,fontsize=plot_opts.font_head_size)
+        axs.set_xlabel(sens_ax_labels[ii],fontsize=plot_opts.font_ax_size)
+        axs.set_ylabel("Probability",fontsize=plot_opts.font_ax_size)
+
+        fig_name = f"{fig_ind+1}_dextremes_simcdfsonly_{kk}.png"
         ax_lims[fig_name] = axs.get_xlim()
         save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
@@ -577,7 +588,6 @@ def main() -> None:
     save_axlim_path = save_path / "axis_limits.json"
     with open(save_axlim_path, "w") as file:
         json.dump(ax_lims, file, indent=4)    
-
 
 
     #---------------------------------------------------------------------------

@@ -728,21 +728,23 @@ def main() -> None:
                     check_lower = np.sum(this_mavm[comb_key]["F_"] 
                                          - this_mavm[comb_key]["d-"])
 
-                    if dplus_cdf_sum is None:
-                        dplus_cdf_sum = check_upper
-                        this_mavm_lim["max"] = this_mavm[comb_key]
-                    else:
-                        if check_upper > dplus_cdf_sum:
+
+                    if sim_key == "max":
+                        if dplus_cdf_sum is None:
                             dplus_cdf_sum = check_upper
                             this_mavm_lim["max"] = this_mavm[comb_key]
-
-                    if dminus_cdf_sum is None:
-                        dminus_cdf_sum = check_lower
-                        this_mavm_lim["min"] = this_mavm[comb_key]
-                    else:
-                        if check_lower < dminus_cdf_sum:
-                            dminus_cdf_sum = dminus_cdf_sum
+                        else:
+                            if check_upper > dplus_cdf_sum:
+                                dplus_cdf_sum = check_upper
+                                this_mavm_lim["max"] = this_mavm[comb_key]
+                    if sim_key == "min":
+                        if dminus_cdf_sum is None:
+                            dminus_cdf_sum = check_lower
                             this_mavm_lim["min"] = this_mavm[comb_key]
+                        else:
+                            if check_lower < dminus_cdf_sum:
+                                dminus_cdf_sum = dminus_cdf_sum
+                                this_mavm_lim["min"] = this_mavm[comb_key]
 
             mavm_list.append(this_mavm)
             mavm_lim_list.append(this_mavm_lim)
@@ -1033,6 +1035,7 @@ def main() -> None:
 
     #--------------------------------------------------------------------------
     # MAVM FIELD CALCULATION
+
     FORCE_MAVM_MAP_CALC = False
     
     mavm_d_plus_path = (temp_path 
@@ -1108,50 +1111,39 @@ def main() -> None:
                         this_mavm[kk] = vm.mavm(sim_strain_mavm,
                                                 exp_strain_mavm)
 
-                        # NOTE: have to sum then add d!!! Otherwise round off error
-                        # F_ is the simulation CDF values in measurement units,
-                        # on the X axis not the probabilitisc on Y
-                        check_upper = np.mean(this_mavm[kk]["F_"])+this_mavm[kk]["d+"] 
-                        # print(80*"-")
-                        # print(f"{this_mavm[kk]['F_'].shape=}")
-                        # print(f"{np.mean(this_mavm[kk]['F_'])=}")
-                        # print(f"{this_mavm[kk]['d+']=}")
-                        # print(f"{check_upper=}")
-                        # print(80*"-")
-                        if dplus_cdf_sum is None:
-                            dplus_cdf_sum = check_upper
-                            mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
-                            mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
-                            mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
-                        else:
-                            if check_upper > dplus_cdf_sum:
+                        # NOTE: have to sum only to make sure we get the correct
+                        # simulation CDF limit. Need upper for d+ and lower for
+                        # d-. Only take d+ from sim max.
+                        if sim_key == "max":
+                            check_upper = np.sum(this_mavm[kk]["F_"]+this_mavm[kk]["d+"]) 
+                            if dplus_cdf_sum is None:
                                 dplus_cdf_sum = check_upper
                                 mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
                                 mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
                                 mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+                            else:
+                                if check_upper > dplus_cdf_sum:
+                                    dplus_cdf_sum = check_upper
+                                    mavm_d_plus[pp,cc] = this_mavm[kk]["d+"]
+                                    mavm_d_plus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                                    mavm_d_plus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
 
-                        # F_ is the simulation CDF values in measurement units,
-                        # on the X axis not the probabilitisc on Y
-                        check_lower = np.mean(this_mavm[kk]["F_"]) - this_mavm[kk]["d-"]
-                        # print(80*"-")
-                        # print(f"{this_mavm[kk]['F_'].shape=}")
-                        # print(f"{np.mean(this_mavm[kk]['F_'])=}")
-                        # print(f"{this_mavm[kk]['d-']=}")
-                        # print(f"{check_lower=}")
-                        # print(80*"-")
-                        if dminus_cdf_sum is None:
-                            #print("Set dminus cdf")
-                            dminus_cdf_sum = check_lower
-                            mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
-                            mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
-                            mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
-                        else:
-                            if check_lower < dminus_cdf_sum:
-                                #print("Update dplus cdf")
-                                dminus_cdf_sum = dminus_cdf_sum
+                        # Only take d- from the sim min
+                        if sim_key == "min":
+                            check_lower = np.sum(this_mavm[kk]["F_"] - this_mavm[kk]["d-"])
+                            if dminus_cdf_sum is None:
+                                #print("Set dminus cdf")
+                                dminus_cdf_sum = check_lower
                                 mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
                                 mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
                                 mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
+                            else:
+                                if check_lower < dminus_cdf_sum:
+                                    #print("Update dplus cdf")
+                                    dminus_cdf_sum = dminus_cdf_sum
+                                    mavm_d_minus[pp,cc] = this_mavm[kk]["d-"]
+                                    mavm_d_minus_cdf_pts[:,pp,cc] = this_mavm[kk]["F_"]
+                                    mavm_d_minus_cdf_prob[:,pp,cc] = this_mavm[kk]["F_Y"]
 
         print("Saving MAVM calculation for faster loading.")
         np.save(mavm_d_plus_path,mavm_d_plus)
@@ -1193,7 +1185,8 @@ def main() -> None:
                          save_tag=SIM_TAG,
                          field_str="strain",
                          unit_str=FIELD_UNIT_STR,
-                         save_path=save_path)
+                         save_path=save_path,
+                         crop_px=4)
 
     #plt.show()
 
@@ -1202,27 +1195,16 @@ def main() -> None:
     # NOTE: y coord should be -'ve here to get to the top of block
     # NOTE: coord is flipped in cdf plots to make it look consistent
     find_pts = {}
-    # find_pts["yy"] = np.array(((-20.0,-12.0),
-    #                            (20.0,-12.0),
-    #                            (0.0,-15.0)))
-    # find_pts["xx"] = np.array(((-20.0,-12.0),
-    #                            (20.0,-12.0),
-    #                            (0.0,-15.0)))
-    # find_pts["xy"] = np.array(((-15.0,0.0),
-    #                            (15.0,0.0),
-    #                            (-14.0,-8.0),
-    #                            (14,-8.0)))
-
-    # (2.8,4.3) # weird
-    # (2.8,3.8) # ok
-    find_pts["yy"] = np.array(((2.8,3.3),
-                               (2.8,3.8),  # Ok
-                               (2.8,4.3),
-                               (2.8,4.8),)) # Weird
-    find_pts["xx"] = np.array(((-20.0,-12.0), # Ok
-                               (23.0,-13.0)),) # Weird
+    find_pts["yy"] = np.array(((-20.0,-12.0),
+                               (20.0,-12.0),
+                               (0.0,-15.0)))
+    find_pts["xx"] = np.array(((-20.0,-12.0),
+                               (20.0,-12.0),
+                               (0.0,-15.0)))
     find_pts["xy"] = np.array(((-15.0,0.0),
-                               (15.0,0.0),))
+                               (15.0,0.0),
+                               (-14.0,-8.0),
+                               (14,-8.0)))
 
     mavm_pts = {}
     for cc in STRAIN_COMP_STRS:
@@ -1436,6 +1418,7 @@ def main() -> None:
     # Paper figure
     ax_ind = yy
     scale_cbar = True
+    crop_px = 0
 
     for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
         field_str = FIELD_AX_STRS[ax_ind]
@@ -1461,7 +1444,8 @@ def main() -> None:
                                 (x_grid,y_grid),
                                 method="linear")
 
-        strain_diff_avg = sim_strain_grid_avg - exp_strain_grid_avg
+        strain_diff_avg = (sim_strain_grid_avg 
+                           - exp_strain_grid_avg)
 
         color_max = np.nanmax((np.nanmax(sim_strain_grid_avg),
                                np.nanmax(exp_strain_grid_avg)))
@@ -1478,9 +1462,9 @@ def main() -> None:
 
         if scale_cbar:
             image = ax[0].imshow(exp_strain_grid_avg,
-                                extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
-                                vmin = color_min,
-                                vmax = color_max)
+                                 extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
+                                 vmin = color_min,
+                                 vmax = color_max)
         else:
             image = ax[0].imshow(exp_strain_grid_avg,
                                 extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
@@ -1512,6 +1496,7 @@ def main() -> None:
         cbar = plt.colorbar(image)
 
         mavm_map = np.reshape(mavm_d_max[:,ax_ind],grid_shape)
+
         image = ax[3].imshow(mavm_map,
             extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
             cmap="plasma")

@@ -1068,7 +1068,8 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
                   save_tag: str = "",
                   field_str: str = "disp.",
                   unit_str: str = "mm",
-                  save_path: Path | None = None) -> None:
+                  save_path: Path | None = None,
+                  crop_px: int = 0) -> None:
 
     if save_path is None:
         save_path = Path("images")
@@ -1081,6 +1082,9 @@ def plot_mavm_map(mavm_d_plus: np.ndarray,
 
     mavm_dp_grid = np.reshape(mavm_d_plus[:,ax_ind],grid_shape)
     mavm_dm_grid = np.reshape(mavm_d_minus[:,ax_ind],grid_shape)
+
+    mavm_dp_grid = mavm_dp_grid[crop_px:-crop_px,crop_px:-crop_px] 
+    mavm_dm_grid = mavm_dm_grid[crop_px:-crop_px,crop_px:-crop_px]
 
     image = ax[0].imshow(mavm_dp_grid,
                       extent=extent)
