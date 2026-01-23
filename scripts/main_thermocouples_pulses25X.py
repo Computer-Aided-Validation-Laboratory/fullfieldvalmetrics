@@ -19,7 +19,8 @@ def main() -> None:
     sens_tags = ("Temp",)*10 + ("Volts",)
     sens_num = len(sens_tags)
 
-    save_path = Path.cwd() / "images_pulse25X_v3"
+    save_path = Path.cwd() / "images_pointsensors_pulse25X_v3"
+
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
 

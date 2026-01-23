@@ -16,9 +16,6 @@ def main() -> None:
     print()
 
     PARA: int = 8
-    #===========================================================================
-    EXP_IND: int = 0
-    #===========================================================================
 
     #---------------------------------------------------------------------------
     # General Constants
@@ -443,7 +440,7 @@ def main() -> None:
     print("Saving FE-ID error field to file.")
     print()
     
-    save_name = f"strain_err_field_fe_take_id_coord_{COORD_TAG}.npy"
+    save_name = f"exp_strain_fe_take_id_coord_{COORD_TAG}.npy"
     np.save(FE_DIR / save_name,err_field)     
     np.save(RED_DIR / save_name,err_field)    
 

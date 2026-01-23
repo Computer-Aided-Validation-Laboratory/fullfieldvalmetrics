@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -23,7 +24,7 @@ def main() -> None:
     PARA: int = 8
 
     #===========================================================================
-    EXP_IND: int = 1
+    EXP_IND: int = 0
     #===========================================================================
 
     comps = (0,1,2)
@@ -1515,10 +1516,23 @@ def main() -> None:
                         / f"exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_maps_mavm_dmax.png")
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-    #---------------------------------------------------------------------------
+
+    plt.close("all")
+        
+    #===========================================================================
     # Paper figure - New d+ and d- 
+    #===========================================================================
+        
     scale_cbar = True
     centre_diff_cbar = True
+
+    def remove_ax(ax):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    map_colour_lims = {}
     
     for ax_ind,ax_str in enumerate(STRAIN_COMP_STRS):
         field_str = FIELD_AX_STRS[ax_ind]
@@ -1565,81 +1579,128 @@ def main() -> None:
         cbar_font_size = 6.0
 
         plot_opts = pyvale.sensorsim.PlotOptsGeneral()
-        fig_size = (plot_opts.a4_print_width,
-                    plot_opts.a4_print_width/(plot_opts.aspect_ratio*2.8))
-        fig,ax = plt.subplots(1,5,figsize=fig_size,layout='constrained')
+
+        fig_scale = 2.5
+        fig_size = (plot_opts.a4_print_width/fig_scale,
+                    plot_opts.a4_print_width/(fig_scale*plot_opts.aspect_ratio))
+
+        #fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        fig_num = 0
+        fig,ax = plt.subplots(1,1,figsize=fig_size,layout='constrained')
         fig.set_dpi(plot_opts.resolution)
 
         if scale_cbar:
-            image = ax[0].imshow(exp_strain_grid_avg,
+            image = ax.imshow(exp_strain_grid_avg,
                                  extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
                                  vmin = strain_color_min,
                                  vmax = strain_color_max)
         else:
-            image = ax[0].imshow(exp_strain_grid_avg,
+            image = ax.imshow(exp_strain_grid_avg,
                                 extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
 
-        ax[0].set_title(f"Exp. Avg. \n{field_str} [{FIELD_UNIT_STR}]",
+        ax.set_title(f"Exp. Avg. \n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
         cbar = plt.colorbar(image)
+        remove_ax(ax)
 
+        fig_name = f"jp{fig_num}_exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_map.png"
+        map_colour_lims[fig_name] = image.get_clim()        
+        save_fig_path = save_path / fig_name
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+        #fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        fig_num += 1
+        fig,ax = plt.subplots(1,1,figsize=fig_size,layout='constrained')
+        fig.set_dpi(plot_opts.resolution)
 
         if scale_cbar:
-            image = ax[1].imshow(sim_strain_grid_avg,
+            image = ax.imshow(sim_strain_grid_avg,
                                 extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
                                 vmin = strain_color_min,
                                 vmax = strain_color_max)
         else:
-            image = ax[1].imshow(sim_strain_grid_avg,
+            image = ax.imshow(sim_strain_grid_avg,
                                 extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max))
 
-        ax[1].set_title(f"Sim. Avg.\n{field_str} [{FIELD_UNIT_STR}]",
+        ax.set_title(f"Sim. Avg.\n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
         cbar = plt.colorbar(image)
+        remove_ax(ax)
 
+        fig_name = f"jp{fig_num}_exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_map.png"
+        map_colour_lims[fig_name] = image.get_clim()        
+        save_fig_path = save_path / fig_name
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+        
+        #fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        fig_num += 1
+        fig,ax = plt.subplots(1,1,figsize=fig_size,layout='constrained')
+        fig.set_dpi(plot_opts.resolution)
 
         if centre_diff_cbar:
-            image = ax[2].imshow(strain_diff_avg,
+            image = ax.imshow(strain_diff_avg,
                                  extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
                                  cmap="RdBu",
                                  vmin=diff_color_min,
                                  vmax=diff_color_max)
         else:    
-            image = ax[2].imshow(strain_diff_avg,
+            image = ax.imshow(strain_diff_avg,
                                 extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
                                 cmap="RdBu")
-        ax[2].set_title(f"(Sim. - Exp.)\n{field_str} [{FIELD_UNIT_STR}]",
+        ax.set_title(f"(Sim. - Exp.)\n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
         cbar = plt.colorbar(image)
+        remove_ax(ax)
 
-        mavm_map = np.reshape(mavm_d_max[:,ax_ind],grid_shape)
+        fig_name = f"jp{fig_num}_exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_map.png"
+        map_colour_lims[fig_name] = image.get_clim()        
+        save_fig_path = save_path / fig_name
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-    
-        image = ax[3].imshow(mavm_dp_grid,
+        
+        #fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        fig_num += 1
+        fig,ax = plt.subplots(1,1,figsize=fig_size,layout='constrained')
+        fig.set_dpi(plot_opts.resolution)
+
+        image = ax.imshow(mavm_dp_grid,
             extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
             cmap="plasma")
         d_str = r"$d^{+}$"
-        ax[3].set_title(f"MAVM {d_str}\n{field_str} [{FIELD_UNIT_STR}]",
+        ax.set_title(f"MAVM {d_str}\n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
         cbar = plt.colorbar(image)
+        remove_ax(ax)
+        
+        fig_name = f"jp{fig_num}_exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_map.png"
+        map_colour_lims[fig_name] = image.get_clim()        
+        save_fig_path = save_path / fig_name
+        fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
 
-        image = ax[4].imshow(mavm_dm_grid,
+
+        #fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        fig_num += 1
+        fig,ax = plt.subplots(1,1,figsize=fig_size,layout='constrained')
+        fig.set_dpi(plot_opts.resolution)
+
+        image = ax.imshow(mavm_dm_grid,
             extent=(sim_x_min,sim_x_max,sim_y_min,sim_y_max),
             cmap="plasma")
-        d_max_str = r"$d^{-}$"
-        ax[4].set_title(f"MAVM {d_str}\n{field_str} [{FIELD_UNIT_STR}]",
+        d_str = r"$d^{-}$"
+        ax.set_title(f"MAVM {d_str}\n{field_str} [{FIELD_UNIT_STR}]",
                         fontsize=plot_opts.font_head_size, fontname=plot_opts.font_name)
         cbar = plt.colorbar(image)
-
-        for aa in ax:
-            aa.set_xticks([])
-            aa.set_yticks([])
-            for spine in aa.spines.values():
-                spine.set_visible(False)
-
-        save_fig_path = (save_path
-                        / f"jp_exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_maps_mavm_dboth.png")
+        remove_ax(ax)
+        
+        fig_name = f"jp{fig_num}_exp{EXP_TAG}_{SIM_TAG}_strain_{ax_str}_map.png"
+        map_colour_lims[fig_name] = image.get_clim()        
+        save_fig_path = save_path / fig_name
         fig.savefig(save_fig_path,dpi=300,format="png",bbox_inches="tight")
+
+
+    save_maplim_path = save_path / "map_colour_limits.json"
+    with open(save_maplim_path, "w") as file:
+        json.dump(map_colour_lims, file, indent=4)    
 
     print(80*"-")
     print("COMPLETE.")
