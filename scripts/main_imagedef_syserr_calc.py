@@ -15,7 +15,7 @@ def main() -> None:
     print(80*"=")
     print()
 
-    PARA: int = 8
+    PARA: int = 32
 
     #---------------------------------------------------------------------------
     # General Constants
@@ -40,11 +40,11 @@ def main() -> None:
     case_keys = {"max","med","min"}
     #---------------------------------------------------------------------------
     # SIM: constants
-    SIM_TAG = "imagedefv3"
+    SIM_TAG = "imagedefv4"
     
     COORD_TAG = "shift" # "shift" | "mat44"
     
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v3"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v4"
     RED_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X" 
     ID_DIR = Path.cwd()/ "STC_ProbSim_ImageDef_FieldsFull_25X_v3"
     

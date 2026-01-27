@@ -52,8 +52,8 @@ def main() -> None:
     #samps_n: int = 5000
 
     if run_full:
-        SIM_TAG = "fullv3"
-        FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v3"
+        SIM_TAG = "fullv4"
+        FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v4"
         SIM_EPIS_N: int = 250 #50
         SIM_ALEA_N: int = 400 #100
     else:

@@ -21,10 +21,10 @@ def main() -> None:
     print(80*"=")
     print()
 
-    PARA: int = 8
+    PARA: int = 32
 
     #===========================================================================
-    EXP_IND: int = 0
+    EXP_IND: int = 2
     #===========================================================================
 
     comps = (0,1,2)
@@ -49,15 +49,15 @@ def main() -> None:
     
     #---------------------------------------------------------------------------
     # SIM: constants
-    run_full = False
+    run_full = True
     # Reduced: 5000 = 100 aleatory x 50 epistemic
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
     #samps_n: int = 5000
 
     if run_full:
-        SIM_TAG = "fullv3"
-        FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v3"
+        SIM_TAG = "fullv4"
+        FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v4"
         SIM_EPIS_N: int = 250 #50
         SIM_ALEA_N: int = 400 #100
     else:

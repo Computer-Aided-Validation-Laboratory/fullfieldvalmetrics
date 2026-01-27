@@ -20,9 +20,9 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # SIM: constants
-    SIM_TAG = "fullv3"
+    SIM_TAG = "fullv4"
 
-    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v3"
+    FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v4"
     conv_to_mm: float = 1000.0 # Simulation is in SI and exp is in mm
 
     # Reduced: 5000 = 100 aleatory x 50 epistemic
