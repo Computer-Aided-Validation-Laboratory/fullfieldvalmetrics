@@ -482,8 +482,10 @@ def main() -> None:
     print("LOAD ERROR FIELD:")
     print("ERR = FE - ID => FE = ID + ERR")
     print("TRUTH = EXP + ERR")
-    
-    id_err_file = f"strain_err_field_fe_take_id_coord_{COORD_TAG}.npy"
+    #--------------------------------------------------------------------------
+    #id_err_file = f"strain_err_field_fe_take_id_coord_{COORD_TAG}.npy"
+    id_err_file = f"exp_strain_fe_take_id_coord_{COORD_TAG}.npy"
+    #---------------------------------------------------------------------------
     id_err_field_grid = np.load(FE_DIR/id_err_file)
     id_err_field_flat = np.reshape(id_err_field_grid,(2,7000,3)) 
 
@@ -1037,7 +1039,7 @@ def main() -> None:
     #--------------------------------------------------------------------------
     # MAVM FIELD CALCULATION
 
-    FORCE_MAVM_MAP_CALC = False
+    FORCE_MAVM_MAP_CALC = True
     
     mavm_d_plus_path = (temp_path 
         / f"mavm_d_plus_exp{EXP_TAG}_sim{SIM_TAG}.npy")

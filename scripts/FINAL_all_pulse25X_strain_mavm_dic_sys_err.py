@@ -45,7 +45,7 @@ def main() -> None:
 
     #---------------------------------------------------------------------------
     # SIM: constants
-    run_full = False
+    run_full = True
     # Reduced: 5000 = 100 aleatory x 50 epistemic
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)

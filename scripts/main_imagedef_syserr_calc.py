@@ -46,7 +46,7 @@ def main() -> None:
     
     FE_DIR = Path.cwd()/ "STC_ProbSim_FieldsFull_25X_v4"
     RED_DIR = Path.cwd()/ "STC_ProbSim_FieldsReduced_25X" 
-    ID_DIR = Path.cwd()/ "STC_ProbSim_ImageDef_FieldsFull_25X_v3"
+    ID_DIR = Path.cwd()/ "STC_ProbSim_ImageDef_FieldsFull_25X_v4"
     
     #---------------------------------------------------------------------------
     # Check directories exist and create output directories
@@ -444,6 +444,8 @@ def main() -> None:
     np.save(FE_DIR / save_name,err_field)     
     np.save(RED_DIR / save_name,err_field)    
 
+    print(f"{FE_DIR / save_name}")
+    print(f"{RED_DIR / save_name}")
     #---------------------------------------------------------------------------
     print(80*"-")
     print("COMPLETE.")

@@ -1,0 +1,62 @@
+{
+    "jp0_exp255_fullv4_strain_xx_map.png": [
+        -0.22974386268277847,
+        7.445111605813699
+    ],
+    "jp1_exp255_fullv4_strain_xx_map.png": [
+        -0.22974386268277847,
+        7.445111605813699
+    ],
+    "jp2_exp255_fullv4_strain_xx_map.png": [
+        -0.42188635627836746,
+        0.42188635627836746
+    ],
+    "jp3_exp255_fullv4_strain_xx_map.png": [
+        0.0,
+        0.1484372367094599
+    ],
+    "jp4_exp255_fullv4_strain_xx_map.png": [
+        0.0,
+        0.060670505744021656
+    ],
+    "jp0_exp255_fullv4_strain_yy_map.png": [
+        -0.24684027754623358,
+        8.411485212500827
+    ],
+    "jp1_exp255_fullv4_strain_yy_map.png": [
+        -0.24684027754623358,
+        8.411485212500827
+    ],
+    "jp2_exp255_fullv4_strain_yy_map.png": [
+        -0.9902377773231397,
+        0.9902377773231397
+    ],
+    "jp3_exp255_fullv4_strain_yy_map.png": [
+        0.0,
+        0.269278483489261
+    ],
+    "jp4_exp255_fullv4_strain_yy_map.png": [
+        0.0,
+        0.4457862245693329
+    ],
+    "jp0_exp255_fullv4_strain_xy_map.png": [
+        -0.5663453651277621,
+        0.47277410856306
+    ],
+    "jp1_exp255_fullv4_strain_xy_map.png": [
+        -0.5663453651277621,
+        0.47277410856306
+    ],
+    "jp2_exp255_fullv4_strain_xy_map.png": [
+        -0.36414149666181783,
+        0.36414149666181783
+    ],
+    "jp3_exp255_fullv4_strain_xy_map.png": [
+        0.0,
+        0.46058878914414403
+    ],
+    "jp4_exp255_fullv4_strain_xy_map.png": [
+        0.0,
+        0.48529216524527535
+    ]
+}
