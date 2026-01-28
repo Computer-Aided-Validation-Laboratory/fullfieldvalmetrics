@@ -13,13 +13,13 @@ def main() -> None:
     print(80*"=")
 
     EXP_DIR = Path.cwd() / "STC_Exp_TCs_25X"
-    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X_v3"
+    SIM_DIR = Path.cwd() / "STC_ProbSim_FieldsFull_25X_v4"
 
     sens_ax_labels = (r"Temp. [$^{\circ}C$]",)*10 + (r"Coil RMS Voltage [$V$]",)
     sens_tags = ("Temp",)*10 + ("Volts",)
     sens_num = len(sens_tags)
 
-    save_path = Path.cwd() / "images_pointsensors_pulse25X_v3"
+    save_path = Path.cwd() / "images_pointsensors_pulse25X_v4"
 
     if not save_path.is_dir():
         save_path.mkdir(exist_ok=True,parents=True)
