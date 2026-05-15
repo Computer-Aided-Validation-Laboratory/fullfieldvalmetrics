@@ -5,6 +5,8 @@ Pulse38_*/
 temp*/
 STC_*/
 
+!STC_Exp_TCs_25X
+
 # Specific exceptions
 !Pulse38_Exp_Thermocouples/
 !STC_ProbSim_Meta/
