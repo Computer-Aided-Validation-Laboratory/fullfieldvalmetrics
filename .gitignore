@@ -5,8 +5,6 @@ Pulse38_*/
 temp*/
 STC_*/
 
-
-
 # Specific exceptions
 !Pulse38_Exp_Thermocouples/
 !STC_ProbSim_Meta/
@@ -14,6 +12,7 @@ STC_*/
 
 !STC_Exp_TCs_25X
 !STC_ProbSim_FieldsFull_25X_v4/
+!STC_ProbSim_MetaData_25X/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
