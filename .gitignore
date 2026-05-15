@@ -5,13 +5,15 @@ Pulse38_*/
 temp*/
 STC_*/
 
-!STC_Exp_TCs_25X
-!STC_ProbSim_FieldsFull_25X_v4/SamplingResultsOnlyPointSensors.csv
+
 
 # Specific exceptions
 !Pulse38_Exp_Thermocouples/
 !STC_ProbSim_Meta/
 !STC_Exp_TCs/
+
+!STC_Exp_TCs_25X
+!STC_ProbSim_FieldsFull_25X_v4/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
