@@ -88,3 +88,25 @@ The MAVM gives two bounds to the simulation result termed d+ and d-. These are t
 |*Modified area validation metric upper 'd+' and lower 'd-' deviation between the simulation and experiment for the y displacement component.*|
 
 The shape of the MAVM d+ and d- are symmetric about the centreline of the sample. As the sample undergoes volumetric expansion due to the imposed induction heating this would indicate a difference in either the temperature distribution or the thermal expansion coefficient with the simulation.
+
+## Validation Metric Interpolation/Extrapolation
+
+The following methods are used for validation metric interpolation/extrapolation:​
+- Least squares regression fit, lower order polynomials for sparse data and higher order polynomials for richer data. The number of TCs limit the polynomial degree which can potentially be used. Hence, one quadratic term is used in the polynomial. Prediction intervals (PI) are used instead of
+the confidence interval (CI) for determining the interpolation/extrapolation uncertainty, as PIs are more conservative than CIs (PI > CI).​
+
+- Gaussian Process Regression (GPR), the mean of the GP prior to be equal to mean of all model form
+uncertainty estimates​.
+
+- Interval predictor model (IPM), trained on both bounds model form uncertainty
+simultaneously​.
+
+
+PI:​
+- Scatter in the experimental data and/or model data ​
+- Scatter of the model uncertainty not captured by the choice of the regression
+function. ​
+- Uncertainty in a single future value of the uncertainty​
+
+​CI:​
+- Estimate of the uncertainty in the mean of a collection of data

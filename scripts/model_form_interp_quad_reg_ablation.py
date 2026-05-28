@@ -1,0 +1,472 @@
+import numpy as np
+import pandas as pd
+from pathlib import Path
+import statsmodels.api as sm
+from statsmodels.regression.linear_model import RegressionResultsWrapper
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+# -------------------------
+# Set random seed
+# -------------------------
+
+SEED = 42
+np.random.seed(SEED)
+
+# -----------------------------------------------------------------------------
+# Folders and files
+# -----------------------------------------------------------------------------
+
+INPUT_FILE = (
+    Path.cwd()
+    / "images_pointsensors_pulse25X_v4"
+    / "pointsensors_mavm.csv"
+)
+
+EXP_DIR = Path.cwd() / "quadratic_interp"
+
+# -----------------------------------------------------------------------------
+# Functions
+# -----------------------------------------------------------------------------
+
+def load_data(input_file: Path) -> tuple[pd.DataFrame, list[str]]:
+    """Load data and merge it into one dataframe
+
+    Parameters
+    ----------
+    input_file : Path
+        Input file
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list[str]]
+        Merged dataframe and thermocouple name list
+    """
+
+    d_values = pd.read_csv(input_file, index_col=0)
+
+    coords_numpy = np.array([
+        [0.0116, -0.0245, 0.0194],
+        [0.0138, -0.0245, 0.0013],
+        [0.0067, -0.0245, 0.012],
+        [0.0110,  0.0245, 0.0031],
+        [-0.0105, 0.0245, -0.005],
+        [-0.0058, 0.0245, 0.0171],
+        [-0.018, -0.0006, 0.0164],
+        [-0.018, -0.004, -0.0085],
+        [-0.018, -0.0047, 0.0073],
+        [-0.018,  0.0124, -0.0032]
+    ])
+
+    coords = pd.DataFrame(
+        coords_numpy,
+        columns=["x", "y", "z"],
+        index=[
+            "TC1", "TC2", "TC3", "TC4", "TC5",
+            "TC6", "TC7", "TC8", "TC9", "TC10"
+        ]
+    )
+
+    merged_df = coords.join(d_values.T, how='inner')
+
+    return merged_df, list(d_values.index)
+
+def build_design_matrix(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> pd.DataFrame:
+    """Design matrix containing the predictor variables [1, x, y, z, x^2] 
+    for model d = a_0 + a_1x + a_2y +a_3z + a_4x^2
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Spatial coordinate
+    y : np.ndarray
+        Spatial coordinate
+    z : np.ndarray
+        Spatial coordinate
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with predictor variables
+    """
+
+    X = pd.DataFrame({
+        "x": x,
+        "y": y,
+        "z": z,
+        "x2": x**2
+    })
+
+    # X = sm.add_constant(X)
+
+    X = sm.add_constant(X, has_constant='add')
+
+    return X
+
+def fit_quadratic_model(df: pd.DataFrame, d_type: str) -> RegressionResultsWrapper:
+    """ Fit quadratic model
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data to fit the model (training data)
+    d_type : str
+        Validation metric type
+
+    Returns
+    -------
+    RegressionResultsWrapper
+        Fitted model
+    """
+
+    x_vals = df['x'].values
+    y_vals = df['y'].values
+    z_vals = df['z'].values
+
+    d_vals = df[d_type].values
+
+    X = build_design_matrix(x_vals, y_vals, z_vals)
+
+    model = sm.OLS(d_vals, X)
+    model_fitted = model.fit()
+
+    return model_fitted
+
+def evaluate_training_points(model_fitted: RegressionResultsWrapper, 
+                             df: pd.DataFrame, 
+                             d_type: str) -> pd.DataFrame:
+    """Evaluate the model at the data points used for fitting/training
+
+    Parameters
+    ----------
+    model_fitted : RegressionResultsWrapper
+        Model fitted to the training data
+    df : pd.DataFrame
+        Data used to fit the model (training data)
+    d_type : str
+        Validation metric type
+
+    Returns
+    -------
+    pd.DataFrame
+        Prediction results
+    """
+
+    X = build_design_matrix(
+        df['x'].values,
+        df['y'].values,
+        df['z'].values
+    )
+
+    pred = model_fitted.get_prediction(X)
+    pred_summary = pred.summary_frame(alpha=0.05)
+
+    out_df = pd.DataFrame({
+        "TC": df.index,
+        "measured": df[d_type].values,
+        "predicted": pred_summary["mean"].values,
+        "lower_95": pred_summary["obs_ci_lower"].values,
+        "upper_95": pred_summary["obs_ci_upper"].values
+    })
+
+    return out_df
+
+def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
+    """Perform ablation study by excluding one TC data 
+    and fitting the model to the rest of the TC data
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        TC validation data
+    d_type : str
+        Validation metric type
+
+    Returns
+    -------
+    pd.DataFrame
+        Ablation study results
+    """
+
+    tc_names = list(df.index)
+
+    results_list = []
+
+    for excluded_tc in tc_names:
+
+        print(f"Excluding {excluded_tc}")
+
+        train_df = df.drop(index=excluded_tc)
+        test_df = df.loc[[excluded_tc]]
+
+        # Fit model
+        model_fitted = fit_quadratic_model(train_df, d_type)
+
+        # Predict excluded point
+        X_test = build_design_matrix(
+            test_df['x'].values,
+            test_df['y'].values,
+            test_df['z'].values
+        )
+
+        pred = model_fitted.get_prediction(X_test)
+        pred_summary = pred.summary_frame(alpha=0.05)
+
+        measured = test_df[d_type].values[0]
+        predicted = pred_summary["mean"].values[0]
+        lower_95 = pred_summary['obs_ci_lower'].values[0]
+        upper_95 = pred_summary['obs_ci_upper'].values[0]
+
+        error = predicted - measured
+        abs_error = abs(error)
+        within_pi = lower_95 <= measured <= upper_95
+        if measured < lower_95:
+            pi_error = lower_95 - measured
+        elif measured > upper_95:
+            pi_error = measured - upper_95
+        else:
+            pi_error = 0.0
+
+        if np.abs(measured) > 1e-12:
+            rel_error = abs(predicted - measured) / abs(measured)
+        else:
+            rel_error = np.nan
+
+        pi_width = upper_95 - lower_95
+
+        results_list.append(
+            {
+                "excluded_tc": excluded_tc,
+                "measured": measured,
+                "predicted": predicted,
+        
+                # mean-based errors
+                "error": error,
+                "abs_error": abs_error,
+                "rel_error": rel_error,
+        
+                # prediction interval
+                "lower_95": lower_95,
+                "upper_95": upper_95,
+                "pi_width": pi_width,
+        
+                # interval-based errors
+                "within_pi": within_pi,
+                "pi_error": pi_error,
+        
+                # model fit
+                "r_squared": model_fitted.rsquared,
+                "aic": model_fitted.aic,
+            }
+        )
+
+    results_df = pd.DataFrame(results_list)
+
+    return results_df
+
+
+def predict_surface(model_fitted: RegressionResultsWrapper, 
+                    df: pd.DataFrame, 
+                    Z_fixed: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Predict the validation metric on a surface with fixed Z.
+
+    Parameters
+    ----------
+    model_fitted : RegressionResultsWrapper
+        Model fitted to the training data
+    df : pd.DataFrame
+        TC validation data
+    Z_fixed : float
+        z coordinate at which to calculate the predictions
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        Prediction coordinated and prediction data
+    """
+
+    x_vals = df['x'].values
+    y_vals = df['y'].values
+
+    x_grid = np.linspace(min(x_vals), max(x_vals), 75)
+    y_grid = np.linspace(min(y_vals), max(y_vals), 75)
+
+    Xg, Yg = np.meshgrid(x_grid, y_grid)
+
+    X_query = build_design_matrix(
+        Xg.ravel(),
+        Yg.ravel(),
+        np.full_like(Xg.ravel(), Z_fixed)
+    )
+
+    pred_summary = (model_fitted.get_prediction(X_query).summary_frame(alpha=0.05))
+
+    pred_mean = pred_summary["mean"].values.reshape(Xg.shape)
+    pred_lower = pred_summary['obs_ci_lower'].values.reshape(Xg.shape)
+    pred_upper = pred_summary['obs_ci_upper'].values.reshape(Xg.shape)
+
+    return Xg, Yg, pred_mean, pred_lower, pred_upper
+
+
+def plot_surface(Xg: np.ndarray, Yg: np.ndarray, mean: np.ndarray,
+                 PI_lower: np.ndarray, PI_upper: np.ndarray, 
+                 d_type: str, output_dir: Path) -> None:
+    """_summary_
+
+    Parameters
+    ----------
+    Xg : np.ndarray
+        _description_
+    Yg : np.ndarray
+        _description_
+    mean : np.ndarray
+        _description_
+    PI_lower : np.ndarray
+        _description_
+    PI_upper : np.ndarray
+        _description_
+    d_type : str
+        _description_
+    output_dir : Path
+        _description_
+    """
+
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Mean surface
+    surf = ax.plot_surface(Xg, Yg, mean, cmap="coolwarm", edgecolor='none')
+    # PI surfaces
+    interval_alpha = 0.3  # transparency for PI surfaces
+    ax.plot_surface(Xg, Yg, PI_lower, color='grey', alpha=interval_alpha, edgecolor='none', label='Obs CI Lower')
+    ax.plot_surface(Xg, Yg, PI_upper, color='grey', alpha=interval_alpha, edgecolor='none', label='Obs CI Upper')
+
+    ax.set_xlabel(r'$x$ (m)', labelpad=10)
+    ax.set_ylabel(r'$y$ (m)', labelpad=10)
+    ax.set_zlabel(r'Predicted $d$ [$^{\circ C}$]', labelpad=15)
+
+    ax.set_title(
+        f'Quadratic fit surface for "{d_type}"', pad=0
+    )
+
+    fig.colorbar(surf, shrink=0.5, aspect=10, label=r'Predicted $d$ [$^{\circ C}$]')
+
+    fig.savefig(output_dir / f"{d_type}_surface.png", dpi=300, bbox_inches="tight")
+
+    plt.close(fig)
+
+
+def main():
+
+    EXP_DIR.mkdir(exist_ok=True)
+
+    coeff_dir = EXP_DIR / "model_coefficients"
+    train_dir = EXP_DIR / "training_predictions"
+    ablation_dir = EXP_DIR / "ablation_results"
+    surface_dir = EXP_DIR / "surfaces"
+
+    for d in [coeff_dir, train_dir, ablation_dir, surface_dir]:
+        d.mkdir(parents=True, exist_ok=True)
+
+    merged_df, d_types = load_data(INPUT_FILE)
+
+    summary_errors = []
+
+    for d_type in d_types:
+
+        print("=" * 80)
+        print(f"Processing {d_type}")
+
+        # ---------------------------------------------------------------------
+        # Fit model to all TC data
+        # ---------------------------------------------------------------------
+
+        model_fitted = fit_quadratic_model(merged_df, d_type)
+
+        if hasattr(model_fitted.params, "index"):
+            terms = model_fitted.params.index
+        else:
+            terms = ["const", "x", "y", "z", "x2"]
+
+        coeff_df = pd.DataFrame({
+                "term": terms,
+                "coefficient": model_fitted.params.values,})
+
+        coeff_df.to_csv(coeff_dir / f"{d_type}_coefficients.csv", index=False)
+
+        # ---------------------------------------------------------------------
+        # Training predictions using the model fitted to all TC data
+        # ---------------------------------------------------------------------
+
+        train_pred_df = evaluate_training_points(model_fitted, merged_df, d_type)
+        train_pred_df.to_csv(train_dir / f"{d_type}_training_predictions.csv", index=False)
+
+        # ---------------------------------------------------------------------
+        # Ablation study
+        # ---------------------------------------------------------------------
+
+        ablation_df = leave_one_out_ablation(merged_df, d_type)
+        ablation_df.to_csv(ablation_dir / f"{d_type}_ablation.csv", index=False)
+
+        mae = mean_absolute_error(ablation_df["measured"], ablation_df["predicted"])
+        rmse = np.sqrt(mean_squared_error(ablation_df["measured"], ablation_df["predicted"]))
+        # summary_errors.append({
+        #     "d_type": d_type,
+        #     "MAE": mae,
+        #     "RMSE": rmse,
+        #     "mean_abs_error": ablation_df["abs_error"].mean(),
+        #     "mean_rel_error": ablation_df["rel_error"].mean(skipna=True)
+        # })
+
+
+        summary_errors.append(
+            {
+                "d_type": d_type,
+        
+                # mean-based errors
+                "MAE": mae,
+                "RMSE": rmse,
+                "mean_abs_error": ablation_df["abs_error"].mean(),
+                # "median_abs_error": ablation_df["abs_error"].median(),
+                "mean_rel_error": ablation_df["rel_error"].mean(skipna=True),
+                # "median_rel_error": ablation_df["rel_error"].median(skipna=True),
+        
+                # prediction interval
+                "mean_pi_width": ablation_df["pi_width"].mean(),
+                # "median_pi_width": ablation_df["pi_width"].median(),
+        
+                # interval-based errors
+                "mean_pi_error": ablation_df["pi_error"].mean(),
+                # "median_pi_error": ablation_df["pi_error"].median(),
+                "pi_coverage": ablation_df["within_pi"].mean(),
+        
+                # model fit
+                "mean_r_squared": ablation_df["r_squared"].mean(),
+                "mean_aic": ablation_df["aic"].mean(),
+            }
+        )
+
+        # ---------------------------------------------------------------------
+        # Surface prediction using the model fitted to all TC data
+        # ---------------------------------------------------------------------
+
+        Z_fixed = (35 - 15/2 - 5) * 1e-3
+        Xg, Yg, pred_mean, pred_lower, pred_upper = predict_surface(model_fitted, merged_df, Z_fixed)
+
+        plot_surface(Xg, Yg, 
+                     pred_mean, pred_lower, pred_upper, 
+                     d_type, surface_dir)
+
+    # -------------------------------------------------------------------------
+    # Save ablation study results
+    # -------------------------------------------------------------------------
+
+    summary_df = pd.DataFrame(summary_errors)
+
+    summary_df.to_csv(EXP_DIR / "ablation_summary.csv", index=False)
+
+    print(summary_df)
+
+if __name__ == "__main__":
+    main()
