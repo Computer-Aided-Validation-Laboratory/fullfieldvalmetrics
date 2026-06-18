@@ -417,11 +417,12 @@ def main() -> None:
                  ls="--",linewidth=plot_opts.lw*1.2,
                  color=dm_c)
 
-        # print(80*"-")
-        # print(f"{kk=}")
-        # print(f"{dplus_max[kk]['d+']=}")
-        # print(f"{dminus_max[kk]['d-']=}")
-        # print(80*"-")
+        print(80*"-")
+        print(f"{kk=}")
+        print("HELLO")
+        print(f"{dplus_max[kk]['d+']=}")
+        print(f"{dminus_max[kk]['d-']=}")
+        print(80*"-")
 
         #axs.legend(loc="upper left",fontsize=6)
         axs.set_title(kk,fontsize=plot_opts.font_head_size)
@@ -636,7 +637,67 @@ def main() -> None:
     print(80*"-")
 
     #---------------------------------------------------------------------------
-    plt.show()
+    # plt.show()
+
+
+    #---------------------------------------------------------------------------
+    # Save d+ max and d- max values to csv
+    
+    d_extremes = []
+    
+    for kk in dplus_max.keys():
+        d_extremes.append({
+            "Sensor": kk,
+            "d+_max": dplus_max[kk]["d+"],
+            "d-_max": dminus_max[kk]["d-"],
+            "d+_stat_key": dplus_max[kk]["stat_key"],
+            "d-_stat_key": dminus_max[kk]["stat_key"],
+        })
+    
+    d_extremes_df = pd.DataFrame(d_extremes)
+    
+    print(80*"-")
+    print("Extreme d values")
+    print(d_extremes_df)
+    
+    save_dextremes = save_path / "pointsensors_dextremes_all.csv"
+    d_extremes_df.to_csv(save_dextremes, index=False)
+
+    #---------------------------------------------------------------------------
+    # Save d+ max and d- max values to csv
+    
+    # d_extremes = []
+    
+    # for kk in dplus_max.keys():
+    #     d_extremes.append({
+    #         "Sensor": kk,
+    #         "d+_max": dplus_max[kk]["d+"],
+    #         "d-_max": dminus_max[kk]["d-"],
+    #     })
+    
+    # d_extremes_df = pd.DataFrame(d_extremes).T
+    
+    # print(80*"-")
+    # print("Extreme d values")
+    # print(d_extremes_df)
+    
+    # save_dextremes = save_path / "pointsensors_dextremes.csv"
+    # d_extremes_df.to_csv(save_dextremes, index=False)
+
+
+    d_extremes_df = pd.DataFrame(
+    [
+        [dplus_max[kk]["d+"] for kk in dplus_max],
+        [dminus_max[kk]["d-"] for kk in dminus_max],
+    ],
+    index=["d+_max", "d-_max"],
+    columns=list(dplus_max.keys()),
+    )
+    
+    print(d_extremes_df)
+    
+    save_dextremes = save_path / "pointsensors_dextremes.csv"
+    d_extremes_df.to_csv(save_dextremes, index=True, header=True)
 
 if __name__ == "__main__":
     main()

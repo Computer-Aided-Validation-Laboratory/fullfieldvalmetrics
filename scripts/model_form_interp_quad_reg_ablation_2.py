@@ -18,13 +18,19 @@ np.random.seed(SEED)
 # Folders and files
 # -----------------------------------------------------------------------------
 
+# INPUT_FILE = (
+#     Path.cwd()
+#     / "images_pointsensors_pulse25X_v4"
+#     / "pointsensors_mavm.csv"
+# )
+
 INPUT_FILE = (
     Path.cwd()
     / "images_pointsensors_pulse25X_v4"
-    / "pointsensors_mavm.csv"
+    / "pointsensors_dextremes.csv"
 )
 
-EXP_DIR = Path.cwd() / "quadratic_interp"
+EXP_DIR = Path.cwd() / "quadratic_interp_2"
 
 # -----------------------------------------------------------------------------
 # Functions
