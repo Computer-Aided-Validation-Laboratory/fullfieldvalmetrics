@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+from ablation_funcs import mape_func, interval_score, regression_accuracy_metrics, load_data
+
 # -------------------------
 # Set random seed
 # -------------------------
@@ -37,6 +39,9 @@ INPUT_FILE = (
 
 EXP_DIR = Path.cwd() / "gpr_interp_2"
 
+TOLERANCE=0.1
+EPOCHS = 6000
+
 # -----------------------------------------------------------------------------
 # Define GPR model
 # -----------------------------------------------------------------------------
@@ -63,48 +68,6 @@ class ExactGPModel(gpytorch.models.ExactGP):
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
-
-def load_data(input_file: Path) -> tuple[pd.DataFrame, list[str]]:
-    """Load data and merge it into one dataframe
-
-    Parameters
-    ----------
-    input_file : Path
-        Input file
-
-    Returns
-    -------
-    tuple[pd.DataFrame, list[str]]
-        Merged dataframe and thermocouple name list
-    """
-
-    d_values = pd.read_csv(input_file, index_col=0)
-
-    coords_numpy = np.array([
-        [0.0116, -0.0245, 0.0194],
-        [0.0138, -0.0245, 0.0013],
-        [0.0067, -0.0245, 0.012],
-        [0.0110,  0.0245, 0.0031],
-        [-0.0105, 0.0245, -0.005],
-        [-0.0058, 0.0245, 0.0171],
-        [-0.018, -0.0006, 0.0164],
-        [-0.018, -0.004, -0.0085],
-        [-0.018, -0.0047, 0.0073],
-        [-0.018,  0.0124, -0.0032]
-    ])
-
-    coords = pd.DataFrame(
-        coords_numpy,
-        columns=["x", "y", "z"],
-        index=[
-            "TC1", "TC2", "TC3", "TC4", "TC5",
-            "TC6", "TC7", "TC8", "TC9", "TC10"
-        ]
-    )
-
-    merged_df = coords.join(d_values.T, how='inner')
-
-    return merged_df, list(d_values.index)
 
 
 def fit_gpr_model(df: pd.DataFrame,
@@ -360,25 +323,36 @@ def leave_one_out_ablation(df: pd.DataFrame,
 
         pi_width = upper_95 - lower_95
 
-        results_list.append({
-            "excluded_tc": excluded_tc,
-            "measured": measured,
-            "predicted": predicted,
+        iscore = interval_score(
+            measured,
+            lower_95,
+            upper_95
+        )
 
-            # mean-based errors
-            "error": error,
-            "abs_error": abs_error,
-            "rel_error": rel_error,
 
-            # confidence interval
-            "lower_95": lower_95,
-            "upper_95": upper_95,
-            "pi_width": pi_width,
-
-            # interval-based errors
-            "within_pi": within_pi,
-            "pi_error": pi_error,
-        })
+        results_list.append(
+            {
+                "excluded_tc": excluded_tc,
+                "measured": measured,
+                "predicted": predicted,
+        
+                # mean-based errors
+                "error": error,
+                "abs_error": abs_error,
+                "rel_error": rel_error,
+        
+                # prediction interval
+                "lower_95": lower_95,
+                "upper_95": upper_95,
+                "pi_width": pi_width,
+        
+                # interval-based errors
+                "within_pi": within_pi,
+                "pi_error": pi_error,
+                "interval_score": iscore,
+        
+            }
+        )
 
     return pd.DataFrame(results_list)
 
@@ -492,7 +466,6 @@ def main():
     merged_df, d_types = load_data(INPUT_FILE)
 
     summary_errors = []
-    training_iter = 1200
 
     for d_type in d_types:
 
@@ -503,7 +476,7 @@ def main():
         # Fit model to all TC data
         # ---------------------------------------------------------------------
 
-        model_fitted, likelihood, norm_params = fit_gpr_model(merged_df, d_type, training_iter)
+        model_fitted, likelihood, norm_params = fit_gpr_model(merged_df, d_type, EPOCHS)
 
         # ---------------------------------------------------------------------
         # Training predictions using the model fitted to all TC data
@@ -522,7 +495,7 @@ def main():
         # Ablation study
         # ---------------------------------------------------------------------
 
-        ablation_df = leave_one_out_ablation(merged_df, d_type, training_iter)
+        ablation_df = leave_one_out_ablation(merged_df, d_type, EPOCHS)
         ablation_df.to_csv(ablation_dir / f"{d_type}_ablation.csv", index=False)
 
         mae = mean_absolute_error(ablation_df["measured"], ablation_df["predicted"])
@@ -536,29 +509,54 @@ def main():
         # })
 
 
+        mape = mape_func(ablation_df["measured"], ablation_df["predicted"])
+
+        within_tol = (
+            np.abs(
+                ablation_df["predicted"] -
+                ablation_df["measured"]
+            )
+            <=
+            TOLERANCE*np.abs(ablation_df["measured"])
+        )
+
+        accuracy = within_tol.mean()
+
+        metrics = regression_accuracy_metrics(
+            ablation_df["measured"],
+            ablation_df["predicted"],
+            tolerance=TOLERANCE
+        )
+
+
         summary_errors.append(
             {
-                "d_type": d_type,
-        
-                # mean-based errors
-                "MAE": mae,
-                "RMSE": rmse,
-                "mean_abs_error": ablation_df["abs_error"].mean(),
-                # "median_abs_error": ablation_df["abs_error"].median(),
-                "mean_rel_error": ablation_df["rel_error"].mean(skipna=True),
-                # "median_rel_error": ablation_df["rel_error"].median(skipna=True),
-        
-                # prediction interval
-                "mean_pi_width": ablation_df["pi_width"].mean(),
-                # "median_pi_width": ablation_df["pi_width"].median(),
-        
-                # interval-based errors
-                "mean_pi_error": ablation_df["pi_error"].mean(),
-                # "median_pi_error": ablation_df["pi_error"].median(),
-                "pi_coverage": ablation_df["within_pi"].mean(),
-        
-                # model fit
+            "d_type": d_type,
 
+            # mean-based errors
+            "MAE": mae,
+            "RMSE": rmse,
+            "MAPE": mape,
+
+            "mean_abs_error":ablation_df["abs_error"].mean(),
+
+            "mean_rel_error": ablation_df["rel_error"].mean(skipna=True),
+
+            # prediction interval
+            "mean_pi_width": ablation_df["pi_width"].mean(),
+
+            # interval-based errors
+            "mean_pi_error": ablation_df["pi_error"].mean(),
+            "pi_coverage": ablation_df["within_pi"].mean(),
+            "mean_interval_score": ablation_df["interval_score"].mean(),
+
+            # prediction accuracy
+            "accuracy": accuracy,
+            "accuracy_matrix": metrics["accuracy"],
+            "TP": metrics["TP"],
+            "FP": metrics["FP"],
+            "TN": metrics["TN"],
+            "FN": metrics["FN"],
             }
         )
 
