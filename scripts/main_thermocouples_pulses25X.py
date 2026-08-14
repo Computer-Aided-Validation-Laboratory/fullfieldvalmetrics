@@ -699,5 +699,204 @@ def main() -> None:
     save_dextremes = save_path / "pointsensors_dextremes.csv"
     d_extremes_df.to_csv(save_dextremes, index=True, header=True)
 
+
+
+    #---------------------------------------------------------------------------
+    # Calculate total uncertainty for interpolation
+    #
+    # Total uncertainty =
+    #     simulation epistemic uncertainty
+    #     +
+    #     MAVM-derived model-form uncertainty
+    #
+    # The MAVM d+ and d- values are horisontal CDF shifts, so we combine them
+    # with the simulation CDF limits in the same output units.
+    # We calculate a scalar upper/lower uncertainty over a probability range.
+    #---------------------------------------------------------------------------
+
+    print(80*"-")
+    print("Calculating total uncertainty...")
+
+    # Probability range over which the uncertainty is evaluated
+    p_grid = np.linspace(0.05, 0.95, 181)
+
+    total_uncertainty = {}
+    total_bounds = {}
+
+    def ecdf_quantile_at_probability(ecdf_obj, p_values):
+        """
+        Linearly interpolate ECDF quantiles at specified probabilities.
+        """
+        return np.interp(
+            p_values,
+            ecdf_obj.probabilities,
+            ecdf_obj.quantiles,
+        )
+
+    for kk in dplus_max:
+
+        sim_nom_cdf = sim_cdfs_lims[kk]["nom"]
+        sim_max_cdf = sim_cdfs_lims[kk]["max"]
+        sim_min_cdf = sim_cdfs_lims[kk]["min"]
+
+        q_sim_nom = ecdf_quantile_at_probability(
+            sim_nom_cdf,
+            p_grid,
+        )
+
+        q_sim_max = ecdf_quantile_at_probability(
+            sim_max_cdf,
+            p_grid,
+        )
+
+        q_sim_min = ecdf_quantile_at_probability(
+            sim_min_cdf,
+            p_grid,
+        )
+
+        # Simulation epistemic uncertainty
+        sim_unc_plus = q_sim_max - q_sim_nom
+        sim_unc_minus = q_sim_nom - q_sim_min
+
+        # MAVM/model-form contribution
+        d_plus = dplus_max[kk]["d+"]
+        d_minus = dminus_max[kk]["d-"]
+
+        # Total uncertainty
+        total_unc_plus_curve = sim_unc_plus + d_plus
+        total_unc_minus_curve = sim_unc_minus + d_minus
+
+        # Conservative scalar value for interpolation
+        total_unc_plus = np.max(total_unc_plus_curve)
+        total_unc_minus = np.max(total_unc_minus_curve)
+
+        # Simulation-only components
+        sim_unc_plus_max = np.max(sim_unc_plus)
+        sim_unc_minus_max = np.max(sim_unc_minus)
+
+        total_uncertainty[kk] = {
+            "sim_plus": sim_unc_plus_max,
+            "sim_minus": sim_unc_minus_max,
+            "model_form_plus": d_plus,
+            "model_form_minus": d_minus,
+            "total_plus": total_unc_plus,
+            "total_minus": total_unc_minus,
+        }
+
+        # Probability-dependent curves too
+        total_bounds[kk] = {
+            "p": p_grid,
+            "q_sim_nom": q_sim_nom,
+            "q_sim_min": q_sim_min,
+            "q_sim_max": q_sim_max,
+
+            "sim_unc_plus": sim_unc_plus,
+            "sim_unc_minus": sim_unc_minus,
+
+            "model_form_plus": np.full_like(
+                p_grid,
+                d_plus,
+            ),
+            "model_form_minus": np.full_like(
+                p_grid,
+                d_minus,
+            ),
+
+            "total_unc_plus": total_unc_plus_curve,
+            "total_unc_minus": total_unc_minus_curve,
+
+            # Final total bounds relative to nominal simulation.
+            "q_total_upper": q_sim_nom + total_unc_plus_curve,
+            "q_total_lower": q_sim_nom - total_unc_minus_curve,
+        }
+
+        print(80*"-")
+        print(f"{kk=}")
+        print(f"simulation + = {sim_unc_plus_max}")
+        print(f"simulation - = {sim_unc_minus_max}")
+        print(f"model form + = {d_plus}")
+        print(f"model form - = {d_minus}")
+        print(f"TOTAL + = {total_unc_plus}")
+        print(f"TOTAL - = {total_unc_minus}")
+
+
+    # Scalar total uncertainty for interpolation
+    total_unc_df = pd.DataFrame(
+        {
+            kk: {
+                "sim_plus": total_uncertainty[kk]["sim_plus"],
+                "sim_minus": total_uncertainty[kk]["sim_minus"],
+                "model_form_plus": total_uncertainty[kk]["model_form_plus"],
+                "model_form_minus": total_uncertainty[kk]["model_form_minus"],
+                "total_plus": total_uncertainty[kk]["total_plus"],
+                "total_minus": total_uncertainty[kk]["total_minus"],
+            }
+            for kk in total_uncertainty
+        }
+    )
+
+    print(80*"-")
+    print("Total uncertainty table")
+    print(total_unc_df)
+
+    save_total_unc = save_path / "pointsensors_total_uncertainty.csv"
+    total_unc_df.to_csv(
+        save_total_unc,
+        index=True,
+        header=True,
+    )
+
+    temp_sensors = [
+        kk for kk in total_unc_df.columns
+        if kk != "CV"
+    ]
+
+    total_unc_temp_df = total_unc_df[temp_sensors]
+
+    print(80*"-")
+    print("Temperature sensor total uncertainty table")
+    print(total_unc_temp_df)
+
+    save_total_unc_temp = (
+        save_path / "pointsensors_total_uncertainty_temperature.csv"
+    )
+
+    total_unc_temp_df.to_csv(
+        save_total_unc_temp,
+        index=True,
+        header=True,
+    )
+
+
+
+    #---------------------------------------------------------------------------
+    # Calculate mean simulation temperature
+    #---------------------------------------------------------------------------
+
+    sim_temp_df = pd.DataFrame(
+    {
+        kk: np.mean(sim_data_lims[kk]["nom"])
+        for kk in sim_data_lims
+        if kk != "CV"
+    },
+    index=["sim_nom_mean"]
+    )
+
+    save_mean_temp = (
+        save_path / "sim_nom_mean_temperature.csv"
+    )
+
+    sim_temp_df.to_csv(
+        save_mean_temp,
+        index=True,
+        header=True,
+    )
+
+    print(80*"-")
+    print("Mean nominal simulation tamperature table")
+    print(sim_temp_df)
+
+
+
 if __name__ == "__main__":
     main()

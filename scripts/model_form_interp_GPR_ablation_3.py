@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
-import statsmodels.api as sm
-from statsmodels.regression.linear_model import RegressionResultsWrapper
+import torch
+import gpytorch
+from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -15,105 +16,222 @@ from ablation_funcs import mape_func, interval_score, regression_accuracy_metric
 
 SEED = 42
 np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+# torch.cuda.manual_seed_all(SEED)
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
 
 # -----------------------------------------------------------------------------
 # Folders and files
 # -----------------------------------------------------------------------------
+
+# INPUT_FILE = (Path.cwd()
+#     / "images_pointsensors_pulse25X_v4"
+#     / "pointsensors_mavm.csv"
+# )
 
 INPUT_FILE = (
     Path.cwd()
     / "images_pointsensors_pulse25X_v4"
     / "pointsensors_dextremes.csv"
 )
-EXP_DIR = Path.cwd() / "quadratic_interp_2"
 
-
-# INPUT_FILE = (
-#     Path.cwd()
-#     / "images_pointsensors_pulse25X_v4"
-#     / "pointsensors_mavm.csv"
-# )
-# EXP_DIR = Path.cwd() / "quadratic_interp"
-
+EXP_DIR = Path.cwd() / "gpr_interp_2"
 
 TOLERANCE=0.1
+EPOCHS = 6000
+
+# -----------------------------------------------------------------------------
+# Define GPR model
+# -----------------------------------------------------------------------------
+
+class ExactGPModel(gpytorch.models.ExactGP):
+
+    def __init__(self, train_x, train_y, likelihood):
+        super().__init__(train_x, train_y, likelihood)
+
+        # Mean function
+        self.mean_module = gpytorch.means.ConstantMean()
+
+        # Covariance / kernel
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.MaternKernel(nu=2.5, ard_num_dims=train_x.shape[1])
+        )
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-def build_design_matrix(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> pd.DataFrame:
-    """Design matrix containing the predictor variables [1, x, y, z, x^2] 
-    for model d = a_0 + a_1x + a_2y +a_3z + a_4x^2
 
-    Parameters
-    ----------
-    x : np.ndarray
-        Spatial coordinate
-    y : np.ndarray
-        Spatial coordinate
-    z : np.ndarray
-        Spatial coordinate
-
-    Returns
-    -------
-    pd.DataFrame
-        Dataframe with predictor variables
-    """
-
-    X = pd.DataFrame({
-        "x": x,
-        "y": y,
-        "z": z,
-        "x2": x**2
-    })
-
-    # X = sm.add_constant(X)
-
-    X = sm.add_constant(X, has_constant='add')
-
-    return X
-
-def fit_quadratic_model(df: pd.DataFrame, d_type: str) -> RegressionResultsWrapper:
-    """ Fit quadratic model
+def fit_gpr_model(df: pd.DataFrame,
+                  d_type: str,
+                  training_iter: int = 100) -> tuple[ExactGPModel, GaussianLikelihood, dict]:
+    """ Train GPR model
 
     Parameters
     ----------
     df : pd.DataFrame
-        Data to fit the model (training data)
+        Training data
     d_type : str
         Validation metric type
+    training_iter : int, optional
+        Number of training iterations
 
     Returns
     -------
-    RegressionResultsWrapper
-        Fitted model
+    tuple[ExactGPModel, GaussianLikelihood, dict]
+        Trained GPR model and normalisation data
     """
 
-    x_vals = df['x'].values
-    y_vals = df['y'].values
-    z_vals = df['z'].values
+    # -------------------------------------------------------------------------
+    # Training data
+    # -------------------------------------------------------------------------
 
-    d_vals = df[d_type].values
+    X_train = df[['x', 'y', 'z']].values
+    y_train = df[d_type].values.reshape(-1, 1)
 
-    X = build_design_matrix(x_vals, y_vals, z_vals)
+    # -------------------------------------------------------------------------
+    # Normalise inputs and outputs
+    # -------------------------------------------------------------------------
 
-    model = sm.OLS(d_vals, X)
-    model_fitted = model.fit()
+    X_mean = X_train.mean(axis=0)
+    X_std = X_train.std(axis=0)
+    X_norm = (X_train - X_mean) / X_std
 
-    return model_fitted
+    y_mean = y_train.mean()
+    y_std = y_train.std()
 
-def evaluate_training_points(model_fitted: RegressionResultsWrapper, 
-                             df: pd.DataFrame, 
-                             d_type: str) -> pd.DataFrame:
-    """Evaluate the model at the data points used for fitting/training
+    print(f"Training data std. is {np.round(y_std)}.")
+
+    if y_std < 1e-12:
+        y_std = 1.0
+        print(f"Changing training data std. to 1.0.")
+
+    y_norm = (y_train - y_mean) / y_std
+
+    # Convert to torch tensors
+    train_x = torch.tensor(X_norm, dtype=torch.float32)
+    train_y = torch.tensor(y_norm.flatten(), dtype=torch.float32)
+
+    # -------------------------------------------------------------------------
+    # Model and likelihood
+    # -------------------------------------------------------------------------
+
+    likelihood = gpytorch.likelihoods.GaussianLikelihood()
+    model = ExactGPModel(train_x, train_y, likelihood)
+
+    # -------------------------------------------------------------------------
+    # Train model
+    # -------------------------------------------------------------------------
+
+    model.train()
+    likelihood.train()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+
+    # Marginal log likelihood
+    mll = gpytorch.mlls.ExactMarginalLogLikelihood(
+        likelihood,
+        model
+    )
+
+    for i in range(training_iter):
+
+        optimizer.zero_grad()
+        output = model(train_x)
+        loss = -mll(output, train_y)
+        loss.backward()
+
+        if (i + 1) % 50 == 0:
+            print(
+                f"Iter {i+1}/{training_iter} - "
+                f"Loss: {loss.item():.4f} "
+                f"noise: {likelihood.noise.item():.6f}"
+            )
+
+        optimizer.step()
+
+    # Store normalisation parameters
+    norm_params = {
+        "X_mean": X_mean,
+        "X_std": X_std,
+        "y_mean": y_mean,
+        "y_std": y_std
+    }
+
+    return model, likelihood, norm_params
+
+def predict_gpr(model_fitted: gpytorch.models.ExactGP,
+                likelihood: GaussianLikelihood,
+                norm_params: dict,
+                X_query: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """ Predict using trained GPR model.
 
     Parameters
     ----------
-    model_fitted : RegressionResultsWrapper
-        Model fitted to the training data
+    model_fitted : gpytorch.models.ExactGP
+        Trained GPR model
+    likelihood : GaussianLikelihood
+        Trained likelihood
+    norm_params : dict
+        Data normalisation parameters
+    X_query : np.ndarray
+        Points where the GPR model is to be evaluated
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        Predictions
+    """
+
+    X_query_norm = ((X_query - norm_params["X_mean"]) / norm_params["X_std"])
+    test_x = torch.tensor(X_query_norm, dtype=torch.float32)
+
+    model_fitted.eval()
+    likelihood.eval()
+
+    with torch.no_grad(), gpytorch.settings.fast_pred_var():
+
+        observed_pred = likelihood(model_fitted(test_x))
+        pred_mean_norm = observed_pred.mean.numpy()
+        lower_norm, upper_norm = (observed_pred.confidence_region())
+
+    # Denormalise predictions
+
+    y_mean = norm_params["y_mean"]
+    y_std = norm_params["y_std"]
+
+    pred_mean = pred_mean_norm * y_std + y_mean
+    lower = lower_norm.numpy() * y_std + y_mean
+    upper = upper_norm.numpy() * y_std + y_mean
+
+    return pred_mean, lower, upper
+
+
+def evaluate_training_points(model_fitted: gpytorch.models.ExactGP,
+                             likelihood: GaussianLikelihood,
+                             norm_params: dict,
+                             df: pd.DataFrame,
+                             d_type: str) -> pd.DataFrame:
+    """ Evaluate trained GPR model at the training locations
+
+    Parameters
+    ----------
+    model_fitted : gpytorch.models.ExactGP
+        Trained GPR model
+    likelihood : GaussianLikelihood
+        Trained likelihood
+    norm_params : dict
+        Data normalisation parameters
     df : pd.DataFrame
-        Data used to fit the model (training data)
+        Training data
     d_type : str
         Validation metric type
 
@@ -123,26 +241,24 @@ def evaluate_training_points(model_fitted: RegressionResultsWrapper,
         Prediction results
     """
 
-    X = build_design_matrix(
-        df['x'].values,
-        df['y'].values,
-        df['z'].values
-    )
+    X_query = df[['x', 'y', 'z']].values
 
-    pred = model_fitted.get_prediction(X)
-    pred_summary = pred.summary_frame(alpha=0.05)
+    pred_mean, lower, upper = predict_gpr(model_fitted, likelihood, norm_params, X_query)
 
     out_df = pd.DataFrame({
         "TC": df.index,
         "measured": df[d_type].values,
-        "predicted": pred_summary["mean"].values,
-        "lower_95": pred_summary["obs_ci_lower"].values,
-        "upper_95": pred_summary["obs_ci_upper"].values
+        "predicted": pred_mean,
+        "lower_95": lower,
+        "upper_95": upper
     })
 
     return out_df
 
-def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
+
+def leave_one_out_ablation(df: pd.DataFrame, 
+                           d_type: str,
+                           training_iter: int = 100) -> pd.DataFrame:
     """Perform ablation study by excluding one TC data 
     and fitting the model to the rest of the TC data
 
@@ -152,6 +268,8 @@ def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
         TC validation data
     d_type : str
         Validation metric type
+    training_iter : int, optional
+        Number of training iterations
 
     Returns
     -------
@@ -170,27 +288,27 @@ def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
         train_df = df.drop(index=excluded_tc)
         test_df = df.loc[[excluded_tc]]
 
-        # Fit model
-        model_fitted = fit_quadratic_model(train_df, d_type)
+        # Fit GPR model
+        model, likelihood, norm_params = fit_gpr_model(train_df, d_type, training_iter)
 
         # Predict excluded point
-        X_test = build_design_matrix(
-            test_df['x'].values,
-            test_df['y'].values,
-            test_df['z'].values
-        )
+        X_test = test_df[['x', 'y', 'z']].values
 
-        pred = model_fitted.get_prediction(X_test)
-        pred_summary = pred.summary_frame(alpha=0.05)
+        pred_mean, lower, upper = predict_gpr(model, likelihood, norm_params, X_test)
 
         measured = test_df[d_type].values[0]
-        predicted = pred_summary["mean"].values[0]
-        lower_95 = pred_summary['obs_ci_lower'].values[0]
-        upper_95 = pred_summary['obs_ci_upper'].values[0]
+
+        predicted = pred_mean[0]
+        lower_95 = lower[0]
+        upper_95 = upper[0]
 
         error = predicted - measured
         abs_error = abs(error)
-        within_pi = lower_95 <= measured <= upper_95
+
+        within_pi = (
+            lower_95 <= measured <= upper_95
+        )
+
         if measured < lower_95:
             pi_error = lower_95 - measured
         elif measured > upper_95:
@@ -199,7 +317,7 @@ def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
             pi_error = 0.0
 
         if np.abs(measured) > 1e-12:
-            rel_error = abs(predicted - measured) / abs(measured)
+            rel_error = abs(error) / abs(measured)
         else:
             rel_error = np.nan
 
@@ -210,6 +328,7 @@ def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
             lower_95,
             upper_95
         )
+
 
         results_list.append(
             {
@@ -232,26 +351,27 @@ def leave_one_out_ablation(df: pd.DataFrame, d_type: str) -> pd.DataFrame:
                 "pi_error": pi_error,
                 "interval_score": iscore,
         
-                # model fit
-                "r_squared": model_fitted.rsquared,
-                "aic": model_fitted.aic,
             }
         )
 
-    results_df = pd.DataFrame(results_list)
-
-    return results_df
+    return pd.DataFrame(results_list)
 
 
-def predict_surface(model_fitted: RegressionResultsWrapper, 
-                    df: pd.DataFrame, 
+def predict_surface(model_fitted: gpytorch.models.ExactGP,
+                    likelihood: GaussianLikelihood,
+                    norm_params: dict,
+                    df: pd.DataFrame,
                     Z_fixed: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Predict the validation metric on a surface with fixed Z.
 
     Parameters
     ----------
-    model_fitted : RegressionResultsWrapper
-        Model fitted to the training data
+    model_fitted : gpytorch.models.ExactGP
+        Trained GPR model
+    likelihood : GaussianLikelihood
+        Trained likelihood
+    norm_params : dict
+        Data normalisation parameters
     df : pd.DataFrame
         TC validation data
     Z_fixed : float
@@ -268,28 +388,27 @@ def predict_surface(model_fitted: RegressionResultsWrapper,
 
     x_grid = np.linspace(min(x_vals), max(x_vals), 75)
     y_grid = np.linspace(min(y_vals), max(y_vals), 75)
-
     Xg, Yg = np.meshgrid(x_grid, y_grid)
 
-    X_query = build_design_matrix(
+    X_query = np.column_stack((
         Xg.ravel(),
         Yg.ravel(),
         np.full_like(Xg.ravel(), Z_fixed)
-    )
+    ))
 
-    pred_summary = (model_fitted.get_prediction(X_query).summary_frame(alpha=0.05))
+    pred_mean, pred_lower, pred_upper = predict_gpr(model_fitted, likelihood, norm_params, X_query)
 
-    pred_mean = pred_summary["mean"].values.reshape(Xg.shape)
-    pred_lower = pred_summary['obs_ci_lower'].values.reshape(Xg.shape)
-    pred_upper = pred_summary['obs_ci_upper'].values.reshape(Xg.shape)
+    pred_mean = pred_mean.reshape(Xg.shape)
+    pred_lower = pred_lower.reshape(Xg.shape)
+    pred_upper = pred_upper.reshape(Xg.shape)
 
     return Xg, Yg, pred_mean, pred_lower, pred_upper
 
 
 def plot_surface(Xg: np.ndarray, Yg: np.ndarray, mean: np.ndarray,
-                 PI_lower: np.ndarray, PI_upper: np.ndarray, 
+                 CI_lower: np.ndarray, CI_upper: np.ndarray, 
                  d_type: str, output_dir: Path) -> None:
-    """ Plot prediction surface with PIs.
+    """ Plot prediction surface with CIs.
 
     Parameters
     ----------
@@ -299,10 +418,10 @@ def plot_surface(Xg: np.ndarray, Yg: np.ndarray, mean: np.ndarray,
         Y coordinate grid
     mean : np.ndarray
         Mean values grid
-    PI_lower : np.ndarray
-        Lower PI grid
-    PI_upper : np.ndarray
-        Upper PI grid
+    CI_lower : np.ndarray
+        Lower CI grid
+    CI_upper : np.ndarray
+        Upper CI grid
     d_type : str
         Validation metric type
     output_dir : Path
@@ -315,9 +434,9 @@ def plot_surface(Xg: np.ndarray, Yg: np.ndarray, mean: np.ndarray,
     # Mean surface
     surf = ax.plot_surface(Xg, Yg, mean, cmap="coolwarm", edgecolor='none')
     # PI surfaces
-    interval_alpha = 0.3  # transparency for PI surfaces
-    ax.plot_surface(Xg, Yg, PI_lower, color='grey', alpha=interval_alpha, edgecolor='none', label='Obs CI Lower')
-    ax.plot_surface(Xg, Yg, PI_upper, color='grey', alpha=interval_alpha, edgecolor='none', label='Obs CI Upper')
+    interval_alpha = 0.3  # transparency for CI surfaces
+    ax.plot_surface(Xg, Yg, CI_lower, color='grey', alpha=interval_alpha, edgecolor='none', label='Obs CI Lower')
+    ax.plot_surface(Xg, Yg, CI_upper, color='grey', alpha=interval_alpha, edgecolor='none', label='Obs CI Upper')
 
     ax.set_xlabel(r'$x$ (m)', labelpad=10)
     ax.set_ylabel(r'$y$ (m)', labelpad=10)
@@ -357,31 +476,26 @@ def main():
         # Fit model to all TC data
         # ---------------------------------------------------------------------
 
-        model_fitted = fit_quadratic_model(merged_df, d_type)
-
-        if hasattr(model_fitted.params, "index"):
-            terms = model_fitted.params.index
-        else:
-            terms = ["const", "x", "y", "z", "x2"]
-
-        coeff_df = pd.DataFrame({
-                "term": terms,
-                "coefficient": model_fitted.params.values,})
-
-        coeff_df.to_csv(coeff_dir / f"{d_type}_coefficients.csv", index=False)
+        model_fitted, likelihood, norm_params = fit_gpr_model(merged_df, d_type, EPOCHS)
 
         # ---------------------------------------------------------------------
         # Training predictions using the model fitted to all TC data
         # ---------------------------------------------------------------------
 
-        train_pred_df = evaluate_training_points(model_fitted, merged_df, d_type)
+        train_pred_df = evaluate_training_points(
+            model_fitted,
+            likelihood,
+            norm_params,
+            merged_df,
+            d_type
+        )
         train_pred_df.to_csv(train_dir / f"{d_type}_training_predictions.csv", index=False)
 
         # ---------------------------------------------------------------------
         # Ablation study
         # ---------------------------------------------------------------------
 
-        ablation_df = leave_one_out_ablation(merged_df, d_type)
+        ablation_df = leave_one_out_ablation(merged_df, d_type, EPOCHS)
         ablation_df.to_csv(ablation_dir / f"{d_type}_ablation.csv", index=False)
 
         mae = mean_absolute_error(ablation_df["measured"], ablation_df["predicted"])
@@ -393,6 +507,7 @@ def main():
         #     "mean_abs_error": ablation_df["abs_error"].mean(),
         #     "mean_rel_error": ablation_df["rel_error"].mean(skipna=True)
         # })
+
 
         mape = mape_func(ablation_df["measured"], ablation_df["predicted"])
 
@@ -450,8 +565,15 @@ def main():
         # ---------------------------------------------------------------------
 
         Z_fixed = (35 - 15/2 - 5) * 1e-3
-        Xg, Yg, pred_mean, pred_lower, pred_upper = predict_surface(model_fitted, merged_df, Z_fixed)
 
+        Xg, Yg, pred_mean, pred_lower, pred_upper = predict_surface(
+            model_fitted,
+            likelihood,
+            norm_params,
+            merged_df,
+            Z_fixed
+        )
+        
         plot_surface(Xg, Yg, 
                      pred_mean, pred_lower, pred_upper, 
                      d_type, surface_dir)

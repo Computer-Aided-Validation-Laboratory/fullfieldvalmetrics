@@ -191,3 +191,4 @@ cython_debug/
 
 
 archive/
+interp_reg_spatial/
