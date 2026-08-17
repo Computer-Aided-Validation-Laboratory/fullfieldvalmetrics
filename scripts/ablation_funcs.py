@@ -129,3 +129,29 @@ def load_data(input_file: Path) -> tuple[pd.DataFrame, list[str]]:
     merged_df = coords.join(d_values.T, how='inner')
 
     return merged_df, list(d_values.index)
+
+
+def load_data_temp(input_file: Path, input_file_temp: Path) -> tuple[pd.DataFrame, list[str]]:
+    """Load data and merge it into one dataframe
+
+    Parameters
+    ----------
+    input_file : Path
+        Input file
+    input_file_path : Path
+        Input file with mean temperatures
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list[str]]
+        Merged dataframe and thermocouple name list
+    """
+
+    d_values = pd.read_csv(input_file, index_col=0)
+    T_values = pd.read_csv(input_file_temp, index_col=0)
+
+    merged_df = T_values.T.join(d_values.T, how='inner')
+
+    merged_df = merged_df.rename(columns={"sim_nom_mean": "T"})
+
+    return merged_df, list(d_values.index)
