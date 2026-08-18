@@ -8,7 +8,7 @@ import seaborn as sns
 import scipy.stats as stats
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-from ablation_funcs import mape_func, interval_score, regression_accuracy_metrics, load_data_temp
+from ablation_funcs import mape_func, interval_score, regression_accuracy_metrics, load_data
 
 # Ablation study for nine models
 
@@ -38,7 +38,7 @@ INPUT_FILE_TEMP = (
     / "images_pointsensors_pulse25X_v4"
     / "mean_sim_temperature.csv"
 )
-EXP_DIR = Path.cwd() / "interp_reg_temp"
+EXP_DIR = Path.cwd() / "interp_reg_spatial"
 
 
 # INPUT_FILE = (
@@ -77,55 +77,55 @@ def build_design_matrix(x: np.ndarray, y: np.ndarray, z: np.ndarray, model_type:
 
     print(f"Model type selected: {model_type}.")
     match model_type:
-        case 1:
+        case 9:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
                 "x2": x**2
             })
-        case 2:
+        case 10:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
                 "y2": y**2
             })
-        case 3:
+        case 11:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
                 "z2": z**2
             })
-        case 4:
+        case 12:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
             })
-        case 5:
+        case 13:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
                 "xy": x*y,
             })
-        case 6:
+        case 14:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
                 "yz": y*z,
             })
-        case 7:
+        case 15:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
                 "z": z,
                 "xz": x*z,
             })
-        case 8:
+        case 16:
             X = pd.DataFrame({
                 "x": x,
                 "y": y,
@@ -423,7 +423,7 @@ def main():
     for d in [coeff_dir, train_dir, ablation_dir, surface_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    merged_df, d_types = load_data_temp(INPUT_FILE, INPUT_FILE_TEMP)
+    merged_df, d_types = load_data(INPUT_FILE)
     
     summary_errors = []
 
@@ -548,7 +548,7 @@ def test_model(model_type):
     for d in [coeff_dir, train_dir, ablation_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    merged_df, d_types = load_data_temp(INPUT_FILE, INPUT_FILE_TEMP)
+    merged_df, d_types = load_data(INPUT_FILE)
 
     print(merged_df)
     print(d_types)
@@ -661,5 +661,5 @@ def test_model(model_type):
 
 # test_model(model_type=1)
 
-for i in range(3, 5):
+for i in range(9, 17):
     test_model(model_type=i)
