@@ -45,7 +45,8 @@ INPUT_FILE = (
 EXP_DIR = Path.cwd() / "interp_gpr_spatial"
 
 TOLERANCE=0.1
-EPOCHS = 6000
+# EPOCHS = 6000
+EPOCHS = 12000
 
 # -----------------------------------------------------------------------------
 # Define GPR model
@@ -144,6 +145,13 @@ def fit_gpr_model(
         )
 
     print(f"Training GPR model on: {device}")
+    print(
+        f"kernel_type: {kernel_type} - "
+        f"ard_num_dims: {ard_num_dims} - "
+        f"nu: {nu} - "
+        f"lr: {lr}"
+    )
+
 
     # -------------------------------------------------------------------------
     # Training data
@@ -274,23 +282,32 @@ def fit_gpr_model(
 
         if (i + 1) % 50 == 0:
 
-            lengthscale = (
-                model.covar_module
-                .base_kernel
-                .lengthscale
-                .detach()
-                .cpu()
-                .numpy()
-                .flatten()
-            )
-
-            print(
-                f"Iter {i+1}/{training_iter} - "
-                f"Loss: {current_loss:.6f} - "
-                f"Best: {best_loss:.6f} - "
-                f"Noise: {likelihood.noise.item():.6f} - "
-                f"Lengthscale: {np.round(lengthscale, 3)}"
-            )
+            if kernel_type != "Linear":
+                lengthscale = (
+                    model.covar_module
+                    .base_kernel
+                    .lengthscale
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .flatten()
+                )
+    
+                print(
+                    f"Iter {i+1}/{training_iter} - "
+                    f"Loss: {current_loss:.6f} - "
+                    f"Best: {best_loss:.6f} - "
+                    f"Noise: {likelihood.noise.item():.6f} - "
+                    f"Lengthscale: {np.round(lengthscale, 3)}"
+                )
+            else:
+    
+                print(
+                    f"Iter {i+1}/{training_iter} - "
+                    f"Loss: {current_loss:.6f} - "
+                    f"Best: {best_loss:.6f} - "
+                    f"Noise: {likelihood.noise.item():.6f}"
+                )
 
         # ---------------------------------------------------------------------
         # Early stopping
@@ -316,8 +333,8 @@ def fit_gpr_model(
         likelihood.load_state_dict(best_likelihood_state)
 
         # Ensure model and likelihood remain on requested device.
-        model.to(device)
-        likelihood.to(device)
+        model.to("cpu")
+        likelihood.to("cpu")
 
         print(
             f"Restored best model with loss = "
@@ -949,7 +966,7 @@ for lr in lrs:
                       "ard_num_dims": ard_num_dims,
                       "nu": nu
                     }
-                    test_model(model_type)
+                    test_model(model_type, device="cuda")
             else:
                 model_type = {
                       "lr": lr,
@@ -957,7 +974,7 @@ for lr in lrs:
                       "ard_num_dims": ard_num_dims,
                       "nu": None
                 }
-                test_model(model_type, device="cpu")
+                test_model(model_type, device="cuda")
 
 
 
