@@ -110,3 +110,41 @@ function. ​
 
 ​CI:​
 - Estimate of the uncertainty in the mean of a collection of data
+
+
+
+## Model parameters
+
+### Spatial
+
+1. Least squares regression fit
+  - Model type: OLS, RLM 
+  - Terms:
+    - Case 1: x, y, z, x^2
+    - Case 2: x, y, z, y^2
+    - Case 3: x, y, z, z^2
+    - Case 4: x, y, z
+    - Case 5: x, y, z, xy
+    - Case 6: x, y, z, yz
+    - Case 7: x, y, z, xz
+    - Case 8: x, y, z, xyz
+
+2. GPR
+  - Learning rate:  0.001, 0.003, 0.01, 0.03, 0.1
+  - Kernel: 
+    - RBF	(very smooth)
+    - Matérn nu=2.5	(moderately smooth)
+    - Matérn nu=1.5	(less smooth)
+    - Linear
+  - Number of ARD lengthscales (during kernel definition): 1, 3
+
+
+
+### Temporal
+
+1. Least squares regression fit
+  - Model type: OLS, RLM 
+  - Terms:
+    - Case 1: T
+    - Case 2: T^2
+

@@ -193,3 +193,4 @@ cython_debug/
 archive/
 interp_reg_spatial/
 interp_reg_temp/
+interp_gpr_spatial/
