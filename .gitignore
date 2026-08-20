@@ -194,3 +194,5 @@ archive/
 interp_reg_spatial/
 interp_reg_temp/
 interp_gpr_spatial/
+interp_gpr_spatial_old/
+interp_gpr_temp/
