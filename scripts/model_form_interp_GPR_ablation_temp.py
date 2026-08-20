@@ -50,7 +50,7 @@ EXP_DIR = Path.cwd() / "interp_gpr_temp"
 
 TOLERANCE=0.1
 # EPOCHS = 6000
-EPOCHS = 10
+EPOCHS = 12000
 
 # -----------------------------------------------------------------------------
 # Define GPR model
