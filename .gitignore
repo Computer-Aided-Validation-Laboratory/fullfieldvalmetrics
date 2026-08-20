@@ -196,3 +196,6 @@ interp_reg_temp/
 interp_gpr_spatial/
 interp_gpr_spatial_old/
 interp_gpr_temp/
+ipm_interp_3/
+ipm_interp_spatial/
+ipm_interp_temp/

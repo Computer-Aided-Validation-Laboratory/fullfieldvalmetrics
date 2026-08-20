@@ -332,7 +332,6 @@ def fit_gpr_model(
         model.load_state_dict(best_model_state)
         likelihood.load_state_dict(best_likelihood_state)
 
-        # Ensure model and likelihood remain on requested device.
         model.to("cpu")
         likelihood.to("cpu")
 
