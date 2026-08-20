@@ -820,8 +820,8 @@ def test_model(model_type, device):
 
     for d_type in d_types:
 
-        if d_type != "total_plus" and d_type != "total_minus":
-            continue
+        # if d_type != "total_plus" and d_type != "total_minus":
+        #     continue
 
         print("=" * 80)
         print(f"Processing {d_type}")
