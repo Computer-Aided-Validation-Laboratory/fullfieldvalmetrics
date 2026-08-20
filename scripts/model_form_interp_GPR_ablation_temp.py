@@ -835,7 +835,7 @@ def test_model(model_type, device):
 
 lrs = np.array([0.003, 0.01, 0.03, 0.1])
 kernel_types = ["RBF", "Matern", "Linear"]
-ard_num_dimss = np.array([None, 3])
+ard_num_dimss = np.array([None])
 nus = np.array([2.5, 1.5])
 
 # model_type = {
