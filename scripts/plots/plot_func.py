@@ -114,7 +114,7 @@ def coverage(df_all, tag):
     )
     
     for container in ax.containers:
-        ax.bar_label(container, fmt="%.1f%%", padding=3, fontweight="bold")
+        ax.bar_label(container, fmt="%.1f%%", padding=3, fontweight="bold", fontsize=6)
     
     ax.set_ylabel("Coverage [%]")
     ax.set_xlabel("Model")
@@ -170,3 +170,21 @@ def performance_dist(results, metrics_to_plot, tag):
     )
 
     return fig, axes
+
+def table(df_to_plot):
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.axis("off")
+    
+    table = ax.table(
+        cellText=df_to_plot.round(3).values,
+        colLabels=df_to_plot.columns,
+        cellLoc="center",
+        loc="center"
+    )
+    
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 1.5)
+
+    return fig, ax

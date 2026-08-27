@@ -199,3 +199,5 @@ interp_gpr_temp/
 ipm_interp_3/
 ipm_interp_spatial/
 ipm_interp_temp/
+ipm_interp_spatial_old/
+ipm_interp_temp_old/

@@ -138,6 +138,9 @@ function. ​
     - Linear
   - Number of ARD lengthscales (during kernel definition): 1, 3
 
+3. IPM
+  - Learning rate:  0.001, 0.003, 0.01, 0.03, 0.1
+  - Hidden dimensions: 1, 4, 16, 32, 64
 
 
 ### Temporal
@@ -147,4 +150,17 @@ function. ​
   - Terms:
     - Case 1: T
     - Case 2: T^2
+
+2. GPR
+  - Learning rate:  0.001, 0.003, 0.01, 0.03, 0.1
+  - Kernel: 
+    - RBF	(very smooth)
+    - Matérn nu=2.5	(moderately smooth)
+    - Matérn nu=1.5	(less smooth)
+    - Linear
+  - Number of ARD lengthscales (during kernel definition): 1, 3
+
+3. IPM
+  - Learning rate:  0.001, 0.003, 0.01, 0.03, 0.1
+  - Hidden dimensions: 1, 4, 16, 32, 64
 
