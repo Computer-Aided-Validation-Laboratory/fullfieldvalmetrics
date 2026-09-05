@@ -10,7 +10,9 @@ import torch.nn.functional as F
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-from ablation_funcs import mape_func, interval_score, regression_accuracy_metrics, load_data
+import sys
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from ablation_funcs import mape_func, interval_score, regression_accuracy_metrics, load_data_temp
 
 # -------------------------
 # Set random seed
@@ -25,16 +27,50 @@ torch.manual_seed(SEED)
 # Folders and files
 # -----------------------------------------------------------------------------
 
+# INPUT_FILE = (
+#     Path.cwd()
+#     / "images_pointsensors_pulse25X_v4"
+#     / "pointsensors_dextremes.csv"
+# )
+
+# INPUT_FILE = (
+#     Path.cwd()
+#     / "images_pointsensors_pulse25X_v4"
+#     / "pointsensors_total_uncertainty_temperature.csv"
+# )
 INPUT_FILE = (
     Path.cwd()
-    / "images_pointsensors_pulse25X_v4"
-    / "pointsensors_dextremes.csv"
+    / "synthetic_data"
+    / "case11"
+    / "pyvale-output"
+    / "valid"
+    / "pointsensors_total_uncertainty_temperature.csv"
+)
+# INPUT_FILE_TEMP = (
+#     Path.cwd()
+#     / "images_pointsensors_pulse25X_v4"
+#     / "mean_sim_temperature.csv"
+# )
+INPUT_FILE_TEMP = (
+    Path.cwd()
+    / "synthetic_data"
+    / "case11"
+    / "pyvale-output"
+    / "valid"
+    / "sim_nom_mean_temperature.csv"
+)
+# EXP_DIR = Path.cwd() / "ipm_interp_temp"
+EXP_DIR = (
+    Path.cwd()
+    / "synthetic_data"
+    / "case11"
+    / "pyvale-output"
+    / "ipm_interp_temp"
 )
 
-EXP_DIR = Path.cwd() / "ipm_interp_3"
-
 TOLERANCE=0.1
-EPOCHS = 6000
+EPOCHS = 12000
+# EPOCHS = 12
 
 # -----------------------------------------------------------------------------
 # Define IPM model
@@ -352,7 +388,7 @@ def fit_ipm_model(df,
     # Training data
     # -------------------------------------------------------------------------
 
-    X_train = df[['x','y','z']].values
+    X_train = df['T'].values
     y_train = df[d_type].values.reshape(-1,1)
 
     # -------------------------------------------------------------------------
@@ -361,6 +397,7 @@ def fit_ipm_model(df,
 
     X_scaler = StandardScaler()
 
+    X_train = np.asarray(X_train).reshape(-1, 1)
     X_scaled = X_scaler.fit_transform(X_train)
 
     y_mean = y_train.mean()
@@ -376,7 +413,7 @@ def fit_ipm_model(df,
     # -------------------------------------------------------------------------
 
     model = IPM(
-        input_dim=3,
+        input_dim=1,
         hidden_dim=hidden_dim
     )
 
@@ -402,6 +439,7 @@ def predict_ipm(model,
                 norm_params,
                 X_query):
 
+    X_query = np.asarray(X_query).reshape(-1, 1)
     X_scaled = norm_params["X_scaler"].transform(X_query)
 
     X_tensor = torch.tensor(
@@ -436,7 +474,7 @@ def evaluate_training_points(model,
                              df,
                              d_type):
 
-    X_query = df[['x','y','z']].values
+    X_query = df['T'].values
 
     pred_mean, lower, upper = predict_ipm(model, norm_params, X_query)
 
@@ -486,7 +524,7 @@ def leave_one_out_ablation(df,
         pred_mean, lower, upper = predict_ipm(
             model,
             norm_params,
-            test_df[['x','y','z']].values
+            test_df['T'].values
         )
 
         measured = test_df[d_type].values[0]
@@ -563,9 +601,7 @@ def main():
     train_dir.mkdir(exist_ok=True)
     ablation_dir.mkdir(exist_ok=True)
 
-    merged_df, d_types = load_data(
-        INPUT_FILE
-    )
+    merged_df, d_types = load_data_temp(INPUT_FILE, INPUT_FILE_TEMP)
 
     summary_errors = []
 
@@ -666,18 +702,18 @@ def test_model(model_type, device):
 
     lr = model_type["lr"]
     hidden_dim = model_type["hidden_dim"]
+    model_type_print = f"{lr}_{hidden_dim}"
 
     EXP_DIR.mkdir(parents=True, exist_ok=True)
 
+    coeff_dir = EXP_DIR / "model_coefficients"
     train_dir = EXP_DIR / "training_predictions"
     ablation_dir = EXP_DIR / "ablation_results"
 
-    train_dir.mkdir(exist_ok=True)
-    ablation_dir.mkdir(exist_ok=True)
+    for d in [coeff_dir, train_dir, ablation_dir]:
+        d.mkdir(parents=True, exist_ok=True)
 
-    merged_df, d_types = load_data(
-        INPUT_FILE
-    )
+    merged_df, d_types = load_data_temp(INPUT_FILE, INPUT_FILE_TEMP)
 
     summary_errors = []
 
@@ -690,21 +726,29 @@ def test_model(model_type, device):
         # Fit model to all TC data
         # ---------------------------------------------------------------------
 
-        model, norm_params, iter = fit_ipm_model(merged_df, d_type, epochs=EPOCHS, 
+        model_fitted, norm_params, iter = fit_ipm_model(merged_df, d_type, epochs=EPOCHS, 
                                            lr=lr, hidden_dim=hidden_dim, device=device)
+
+        checkpoint = {
+            "model_state_dict": model_fitted.state_dict(),
+            "norm_params": norm_params,
+            "d_type": d_type,
+        }
+        
+        torch.save(checkpoint, coeff_dir / f"{d_type}_gpr_model_{model_type_print}.pth")
 
         # -------------------------------------------------------------
         # Training predictions using the model fitted to all TC data
         # -------------------------------------------------------------
 
         train_pred_df = evaluate_training_points(
-            model,
+            model_fitted,
             norm_params,
             merged_df,
             d_type
         )
 
-        train_pred_df.to_csv(train_dir / f"{d_type}_training_predictions.csv", index=False)
+        train_pred_df.to_csv(train_dir / f"{d_type}_training_predictions_{model_type_print}.csv", index=False)
 
         # -------------------------------------------------------------
         # Ablation study
@@ -713,7 +757,7 @@ def test_model(model_type, device):
         ablation_df = leave_one_out_ablation(merged_df, d_type, epochs=EPOCHS, 
                                              lr=lr, hidden_dim=hidden_dim, device=device)
 
-        ablation_df.to_csv(ablation_dir / f"{d_type}_ablation.csv", index=False)
+        ablation_df.to_csv(ablation_dir / f"{d_type}_ablation_{model_type_print}.csv", index=False)
 
         mae = mean_absolute_error(ablation_df["measured"], ablation_df["predicted"])
         rmse = np.sqrt(mean_squared_error(ablation_df["measured"], ablation_df["predicted"]))
@@ -771,7 +815,7 @@ def test_model(model_type, device):
 
     summary_df = pd.DataFrame(summary_errors)
 
-    summary_df.to_csv(EXP_DIR / "ablation_summary.csv", index=False)
+    summary_df.to_csv(EXP_DIR / f"ablation_summary_{model_type_print}.csv", index=False)
 
     print(summary_df)
 
@@ -781,11 +825,20 @@ def test_model(model_type, device):
 
 
 lrs = np.array([0.003, 0.01, 0.03, 0.1])
-hidden_dims = np.array([4, 16, 32, 64])
+hidden_dims = np.array([1, 4, 16, 32, 64])
 
-model_type = {
-  "lr": 1e-3,
-  "hidden_dim": 64
-}
+# model_type = {
+#   "lr": 1e-3,
+#   "hidden_dim": 64
+# }
 
-test_model(model_type, device="cpu")
+# test_model(model_type, device="cpu")
+
+
+for lr in lrs:
+    for hidden_dim in hidden_dims:
+        model_type = {
+          "lr": lr,
+          "hidden_dim": hidden_dim
+        }
+        test_model(model_type, device="cuda")
