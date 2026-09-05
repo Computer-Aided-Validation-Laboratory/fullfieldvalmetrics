@@ -10,9 +10,10 @@ import pyvale.mooseherder as mh
 import pyvale.dataset as dataset
 from pyvale.sensorsim.experimentsimulator import (ExperimentSimulator,
                                                   ExpSimSaveKeys)
+from pyvale.sensorsim.errorsimulator import EErrDep
 
 num_exp=5000
-num_exp=100000
+# num_exp=100000
 
 # -------------------------------
 # 1. Load physics simulation data
@@ -70,8 +71,8 @@ sens_array: sens.SensorsPoint = sens.SensorFactory.scalar_point(
 # ]
 
 err_chain: list[sens.IErrSimulator] = [
-    sens.ErrSysGen(sens.GenUniform(low=-5.0,high=5.0)),
-    sens.ErrRandGen(sens.GenNormal(std=5.0)),
+    sens.ErrSysGen(sens.GenUniform(low=-20.0,high=20.0)),
+    sens.ErrRandGen(sens.GenNormal(std=5.0), err_dep=EErrDep.DEPENDENT),
 ]
 sens_array.set_error_chain(err_chain)
 
@@ -109,7 +110,7 @@ pv_plot.camera_position = [(59.354, 43.428, 69.946),
                             (-0.215, 0.948, -0.233)]
 
 # Set to False to show an interactive plot instead of saving the figure
-pv_plot.off_screen = False
+pv_plot.off_screen = True
 if pv_plot.off_screen:
     pv_plot.screenshot(output_path/"locs_sim.png")
 else:
