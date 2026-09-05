@@ -89,6 +89,7 @@ The MAVM gives two bounds to the simulation result termed d+ and d-. These are t
 
 The shape of the MAVM d+ and d- are symmetric about the centreline of the sample. As the sample undergoes volumetric expansion due to the imposed induction heating this would indicate a difference in either the temperature distribution or the thermal expansion coefficient with the simulation.
 
+
 ## Validation Metric Interpolation/Extrapolation
 
 The following methods are used for validation metric interpolation/extrapolation:​
@@ -164,3 +165,9 @@ function. ​
   - Learning rate:  0.001, 0.003, 0.01, 0.03, 0.1
   - Hidden dimensions: 1, 4, 16, 32, 64
 
+## Experimental data
+Experimental data is located here `images_pointsensors_pulse25X_v4`.
+The script used to obtain validation metrics is `main_thermocouples_pulses25X.py`. 
+
+## Synthetic data
+Synthetic data is located here `synthetic_data`.

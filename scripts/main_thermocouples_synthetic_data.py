@@ -46,20 +46,28 @@ def main() -> None:
     # Full: 400 aleatory x 250 epistemic
     # exp_data = exp_data.reshape(samps_n,epis_n,alea_n)
     #samps_n: int = 5000
-    epis_n: int = 250#50
-    alea_n: int = 400#100
+    # epis_n: int = 250#50
+    # alea_n: int = 400#100
 
-    # epis_n: int = 50
-    # alea_n: int = 100
+    epis_n: int = 50
+    alea_n: int = 100
     
 
-    sim_keys = {"TC1":0,
-                "TC2":1,
-                "TC3":2,
-                "TC4":3,
-                "TC5":4,
-                "TC6":5,
-                "TC7":6}
+    # sim_keys = {"TC1":0,
+    #             "TC2":1,
+    #             "TC3":2,
+    #             "TC4":3,
+    #             "TC5":4,
+    #             "TC6":5,
+    #             "TC7":6}
+
+    sim_keys = {"TC1":2,
+                "TC2":3,
+                "TC3":4,
+                "TC4":5,
+                "TC5":6,
+                "TC6":7,
+                "TC7":8}
 
     # sim_keys = {"TC2":0,
     #             "TC3":1,
