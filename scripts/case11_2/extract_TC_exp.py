@@ -17,7 +17,9 @@ num_exp=5000
 # -------------------------------
 # 1. Load physics simulation data
 # -------------------------------
-data_path: Path = Path("case11_exp_out.e")
+# data_path: Path = Path("case11_exp_out.e")
+data_path: Path =  Path.cwd() / "synthetic_data/case11/case11_exp_out.e"
+output_path = Path.cwd() / "synthetic_data/case11_2" / "pyvale-output"
 sim_data: io.SimData = mh.ExodusLoader(data_path).load_all_sim_data()
 sim_data: io.SimData = sens.scale_length_units(scale=1000.0,
                                                sim_data=sim_data,
@@ -31,10 +33,12 @@ sim_data: io.SimData = sens.scale_length_units(scale=1000.0,
 # 2. Build a virtual sensor array
 # --------------------------------
 # 7 TC locations to match the experiment
-sens_pos: np.ndarray = sens.gen_pos_grid_inside(num_sensors=(1,7,1),
-                                                    x_lims=(12.5,12.5),
-                                                    y_lims=(0.0,33.0),
-                                                    z_lims=(0.0,12.0))
+sens_pos: np.ndarray = sens.gen_pos_grid_inside(
+    num_sensors=(1, 7, 6),
+    x_lims=(12.5, 12.5),
+    y_lims=(0.0, 33.0),
+    z_lims=(0.0, 12.0),
+)
 # sens_data = sens.SensorData(positions=sens_pos)
 sens_data = sens.SensorData(positions=sens_pos,
                             sample_times=np.ndarray([1]))
@@ -104,7 +108,7 @@ print(exp_stats)
 # 4. Analyse & visualise the results
 # ----------------------------------
 
-output_path = Path.cwd() / "pyvale-output"
+# output_path = Path.cwd() / "pyvale-output"
 if not output_path.is_dir():
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -155,20 +159,20 @@ print(type(exp_arr))
 exp_arr = np.squeeze(exp_arr)
 print(exp_arr.shape)
 
-headers = [f"TC{i}" for i in range(1, 8)]
+pos = exp_data[pos_key][0, :, :]
+headers = [f"TC{i}" for i in range(1, pos.shape[0]+1)]
 # headers = ["TC2", "TC3", "TC5", "TC6", "TC8", "TC9", "TC10"]
 np.savetxt(
-    "pyvale-output/SamplingResultsOnlyPointSensors_exp.csv",
+    output_path / "SamplingResultsOnlyPointSensors_exp.csv",
     exp_arr,
     delimiter=",",
     header=",".join(headers),
     comments=""
 )
 
-pos = exp_data[pos_key][0, :, :]
 headers = ["x", "y", "z"]
 np.savetxt(
-    "pyvale-output/PointSensorCoords.csv",
+    output_path / "PointSensorCoords_exp.csv",
     pos,
     delimiter=",",
     header=",".join(headers),

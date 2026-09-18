@@ -118,7 +118,7 @@ pv_plot.camera_position = [(59.354, 43.428, 69.946),
                             (-0.215, 0.948, -0.233)]
 
 # Set to False to show an interactive plot instead of saving the figure
-pv_plot.off_screen = False
+pv_plot.off_screen = True
 if pv_plot.off_screen:
     pv_plot.screenshot(output_path/"locs_exp.png")
 else:
