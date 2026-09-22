@@ -66,7 +66,7 @@ COORDS_FILE = (
     / "synthetic_data"
     / "case11_1"
     / "pyvale-output"
-    / "PointSensorCoords.csv"
+    / "PointSensorCoords_sim.csv"
 )
 
 TOLERANCE=0.1

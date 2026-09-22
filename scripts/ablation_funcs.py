@@ -158,6 +158,39 @@ def load_data_temp(input_file: Path, input_file_temp: Path) -> tuple[pd.DataFram
 
 
 
+# def load_data_with_file(input_file: Path, coords_file: Path) -> tuple[pd.DataFrame, list[str]]:
+#     """Load data and merge it into one dataframe.
+
+#     Parameters
+#     ----------
+#     input_file : Path
+#         Input data file.
+#     coords_file : Path
+#         CSV file containing thermocouple coordinates with columns
+#         'x', 'y', and 'z'.
+
+#     Returns
+#     -------
+#     tuple[pd.DataFrame, list[str]]
+#         Merged dataframe and thermocouple name list.
+#     """
+
+#     d_values = pd.read_csv(input_file, index_col=0)
+#     coords = pd.read_csv(coords_file)
+#     coords.index = [
+#         "TC1", "TC2", "TC3", "TC4", "TC5",
+#         "TC6", "TC7"
+#     ]
+#     print(coords)
+#     print(coords.shape)
+#     #coords = coords[["x", "y", "z"]].to_numpy()
+
+#     merged_df = coords.join(d_values.T, how="inner")
+
+#     return merged_df, list(d_values.index)
+
+
+
 def load_data_with_file(input_file: Path, coords_file: Path) -> tuple[pd.DataFrame, list[str]]:
     """Load data and merge it into one dataframe.
 
@@ -177,10 +210,11 @@ def load_data_with_file(input_file: Path, coords_file: Path) -> tuple[pd.DataFra
 
     d_values = pd.read_csv(input_file, index_col=0)
     coords = pd.read_csv(coords_file)
-    coords.index = [
-        "TC1", "TC2", "TC3", "TC4", "TC5",
-        "TC6", "TC7"
-    ]
+    # coords.index = [
+    #     "TC1", "TC2", "TC3", "TC4", "TC5",
+    #     "TC6", "TC7"
+    # ]
+    coords.index = [f"TC{i}" for i in range(1, coords.shape[0]+1)]
     print(coords)
     print(coords.shape)
     #coords = coords[["x", "y", "z"]].to_numpy()
@@ -188,3 +222,6 @@ def load_data_with_file(input_file: Path, coords_file: Path) -> tuple[pd.DataFra
     merged_df = coords.join(d_values.T, how="inner")
 
     return merged_df, list(d_values.index)
+
+
+# headers = [f"TC{i}" for i in range(1, pos.shape[0]+1)]
