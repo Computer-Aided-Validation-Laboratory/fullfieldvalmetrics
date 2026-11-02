@@ -1,0 +1,55 @@
+case11 study comparison run information
+========================================================================
+generated_utc: 2026-11-02T10:28:22.231652+00:00
+python: 3.11.14
+platform: Linux-7.0.0-34-generic-x86_64-with-glibc2.39
+packages: numpy=2.3.5, pandas=2.3.3, matplotlib=3.10.6, seaborn=0.13.2, scipy=1.16.3
+repo_root: /home/wiera/Documents/fullfieldvalmetrics_new
+data_root: /home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data
+output_dir: /home/wiera/Documents/fullfieldvalmetrics_new/scripts/plots/case11_comparison_outputs
+
+Inputs
+------------------------------------------------------------------------
+case11: target=/home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data/case11/pyvale-output/valid/pointsensors_total_uncertainty_temperature.csv | coords=/home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data/case11/pyvale-output/PointSensorCoords.csv
+case11_1: target=/home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data/case11_1/pyvale-output/valid/pointsensors_total_uncertainty_temperature.csv | coords=/home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data/case11_1/pyvale-output/PointSensorCoords_exp.csv
+case11_2: target=/home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data/case11_2/pyvale-output/valid/pointsensors_total_uncertainty_temperature.csv | coords=/home/wiera/Documents/fullfieldvalmetrics_new/synthetic_data/case11_2/pyvale-output/PointSensorCoords_exp.csv
+
+Configuration counts
+------------------------------------------------------------------------
+interp_reg_spatial: 16 common configurations
+interp_reg_temp: 4 common configurations
+interp_gpr_spatial: 32 common configurations
+interp_gpr_temp: 16 common configurations
+ipm_interp_spatial: 20 common configurations
+ipm_interp_temp: 20 common configurations
+total common configurations: 108
+
+Data sizes
+------------------------------------------------------------------------
+per-TC result rows: 51,192
+common-y support: [4.125000, 24.750000]
+TC counts in common-y support: case11=6, case11_1=23, case11_2=36
+
+Validation
+------------------------------------------------------------------------
+metric, max_abs_diff, max_rel_diff
+MAE: 7.105427e-15, 8.715214e-13
+RMSE: 3.552714e-15, 1.075397e-12
+MAPE: 4.656613e-10, 1.340986e-13
+mean_rel_error: 7.275958e-12, 1.277287e-13
+mean_pi_width: 1.421085e-14, 8.559418e-16
+mean_pi_error: 8.881784e-16, 8.877356e-13
+pi_coverage: 5.551115e-17, 1.295260e-16
+mean_interval_score: 2.842171e-14, 4.697226e-16
+accuracy: 7.632783e-17, 2.747802e-15
+coverage_error: 1.110223e-16, 2.129195e-16
+target measured max abs diff: 4.440892e-16
+
+Notes
+------------------------------------------------------------------------
+case11_2 has 42 coordinate rows but only 36 TCs in the target and
+ablation files.  All analysis uses those 36 TCs.
+IPM summaries name the accuracy column accuracy_2pct; it is
+normalised to accuracy.  All families use a 10% relative tolerance.
+Model configurations are paired by family and config.  Errors are
+not paired per TC because the three studies use different TCs.

@@ -1,0 +1,82 @@
+case11 / case11_1 / case11_2 comparison
+========================================================================
+
+Study designs
+------------------------------------------------------------------------
+case11    Sparse line (7 TCs)           N= 7, y=[4.125, 28.875], z=[6.000, 6.000], median NN=4.125
+case11_1  Dense line (36 TCs)           N=36, y=[0.892, 32.108], z=[6.000, 6.000], median NN=0.892
+case11_2  6 x 6 grid (36 TCs)           N=36, y=[4.125, 24.750], z=[1.714, 10.286], median NN=1.714
+case11_2 uses 36 of the 42 rows in its coordinate file; the target and ablation files contain 36 TCs (6 y levels x 6 z levels).
+Common-y support: [4.125, 24.750] (case11: 6 TCs, case11_1: 23 TCs, case11_2: 36 TCs).
+
+Target-field comparison (mean total uncertainty, °C)
+------------------------------------------------------------------------
+case11    all TCs: 13.08  |  common-y: 8.78  (median 5.66, max 23.12)
+case11_1  all TCs: 14.77  |  common-y: 7.31  (median 5.61, max 20.73)
+case11_2  all TCs: 8.77  |  common-y: 8.77  (median 5.65, max 23.12)
+case11 and case11_2 have the same total_plus mean on the common-y support; case11_1 is slightly easier there, so the performance comparison is not biased against the denser layouts.
+At the six shared y levels, sim_plus/sim_minus targets agree to within ~2e-8 °C between case11 and case11_2; total targets differ by at most ~0.17 °C because case11_2 averages over six z slices.
+
+Model performance on common-y support (median over 108 configs)
+------------------------------------------------------------------------
+d_type             case         RMSE int. score  rel. err  accuracy  cov. err
+total_plus         case11      4.581      31.58     0.729     0.167     0.117
+total_plus         case11_1    2.937      10.88     0.460     0.217     0.050
+total_plus         case11_2    2.312       9.30     0.287     0.306     0.050
+total_minus        case11      5.062      21.11     0.505     0.167     0.050
+total_minus        case11_1    2.583       9.86     0.261     0.261     0.050
+total_minus        case11_2    1.842       8.60     0.188     0.361     0.050
+
+Paired comparisons (common-y support, win rate = second case better)
+------------------------------------------------------------------------
+case11 -> case11_1 (sparse line -> dense line)
+  total_plus   RMSE            median 4.581 -> 2.937 (-30.0%), win rate 87.04%
+  total_plus   interval score  median 31.582 -> 10.876 (-61.1%), win rate 88.89%
+  total_plus   relative error  median 0.729 -> 0.460 (-42.8%), win rate 90.74%
+  total_minus  RMSE            median 5.062 -> 2.583 (-37.1%), win rate 87.04%
+  total_minus  interval score  median 21.109 -> 9.859 (-44.2%), win rate 79.63%
+  total_minus  relative error  median 0.505 -> 0.261 (-48.5%), win rate 87.96%
+
+case11_1 -> case11_2 (dense line -> grid)
+  total_plus   RMSE            median 2.937 -> 2.312 (-31.6%), win rate 81.48%
+  total_plus   interval score  median 10.876 -> 9.302 (-38.4%), win rate 79.63%
+  total_plus   relative error  median 0.460 -> 0.287 (-36.4%), win rate 82.41%
+  total_minus  RMSE            median 2.583 -> 1.842 (-31.6%), win rate 85.19%
+  total_minus  interval score  median 9.859 -> 8.595 (-43.2%), win rate 82.41%
+  total_minus  relative error  median 0.261 -> 0.188 (-37.5%), win rate 83.33%
+
+case11 -> case11_2 (sparse line -> grid)
+  total_plus   RMSE            median 4.581 -> 2.312 (-54.8%), win rate 99.07%
+  total_plus   interval score  median 31.582 -> 9.302 (-67.4%), win rate 97.22%
+  total_plus   relative error  median 0.729 -> 0.287 (-66.4%), win rate 99.07%
+  total_minus  RMSE            median 5.062 -> 1.842 (-53.0%), win rate 98.15%
+  total_minus  interval score  median 21.109 -> 8.595 (-62.3%), win rate 98.15%
+  total_minus  relative error  median 0.505 -> 0.188 (-65.2%), win rate 99.07%
+
+Family-level consistency (common-y support)
+------------------------------------------------------------------------
+case11 -> case11_1, total_plus  : 6/6 families have a family-level RMSE win rate > 0.5; family win rates range 0.65 to 1.00.
+case11 -> case11_1, total_minus : 6/6 families have a family-level RMSE win rate > 0.5; family win rates range 0.65 to 1.00.
+case11_1 -> case11_2, total_plus  : 6/6 families have a family-level RMSE win rate > 0.5; family win rates range 0.62 to 1.00.
+case11_1 -> case11_2, total_minus : 6/6 families have a family-level RMSE win rate > 0.5; family win rates range 0.62 to 1.00.
+case11 -> case11_2, total_plus  : 6/6 families have a family-level RMSE win rate > 0.5; family win rates range 0.95 to 1.00.
+case11 -> case11_2, total_minus : 6/6 families have a family-level RMSE win rate > 0.5; family win rates range 0.90 to 1.00.
+
+Overall best total_plus RMSE configuration per case (common-y)
+------------------------------------------------------------------------
+case11    GPR-Spatial   config 0.003_Matern_3_1.5       RMSE=1.7052 °C
+case11_1  GPR-Spatial   config 0.1_Matern_None_1.5      RMSE=0.1068 °C
+case11_2  GPR-Temp      config 0.003_RBF_None_None      RMSE=0.0523 °C
+
+Validation
+------------------------------------------------------------------------
+Recomputed summaries match saved summaries for all metrics; worst relative difference is 1.075e-12 (RMSE).
+Result-file measured values match the target tables in all cases; maximum absolute difference is 4.441e-16 °C.
+
+Interpretation and caveats
+------------------------------------------------------------------------
+Densifying the line from 7 to 36 TCs improves both total_plus and total_minus errors for almost all configurations.  Replacing the dense line by a 6 x 6 grid gives a further improvement at the same total TC count (36), especially for total_plus.
+The grid is better despite having a larger nearest-neighbour spacing than the dense line (1.714 versus 0.892 coordinate units).  This is consistent with the grid providing six repeated samples at each y and two-dimensional coverage, but the comparison is observational, so this is an association rather than a controlled causal effect.
+The headline comparisons use the common-y support because case11_1 contains high-y TCs that are outside case11_2's range.  Complete all-TC results are still provided in the pairwise tables.
+Relative-error results for model_form_plus are unstable because the target is often zero or near zero.  Use RMSE and interval score for model-form conclusions; relative error is most meaningful for total and simulation components.
+The comparisons are still observational: the three studies do not share identical TC locations.  The common-y restriction makes the target support comparable, but case11_1 has 23 TCs and case11_2 has 36 TCs inside that support, so the experiment is not a controlled same-locations comparison.
