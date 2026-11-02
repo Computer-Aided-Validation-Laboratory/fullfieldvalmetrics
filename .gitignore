@@ -203,4 +203,15 @@ ipm_interp_spatial_old/
 ipm_interp_temp_old/
 synthetic_data/case11/pyvale-output/
 synthetic_data/case11_1/pyvale-output/
+synthetic_data/case11_2/pyvale-output/
+synthetic_data/test/
 
+# generated artifacts from the surrogate FMU workflow
+surrogate_test_case_1/.fmu_extracted/
+__pycache__/
+*.pyc
+# generated test/report outputs
+surrogate_test_case_1/tests/pytest_report.txt
+surrogate_test_case_1/tests/accuracy_report.txt
+surrogate_test_case_1/tests/accuracy_report.csv
+scripts/mavm_nuisance_split/
